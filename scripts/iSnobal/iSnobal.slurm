@@ -18,7 +18,8 @@
 # Enable CPU Hyper-threading
 export OMP_NUM_THREADS=${SLURM_NTASKS}
 
-source load_conda_env isnoda
+# Update the below use of conda according to the HPC docs
+module load miniforge
+mamba activate isnobal
 
 awsm_daily ~/project-data/iSnobal/ERW/ERW_subset_awsm.ini
-

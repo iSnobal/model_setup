@@ -15,21 +15,18 @@
 #SBATCH --output=slurm-%j.out-%N
 #SBATCH --error=slurm-%j.err-%N
 
-# Load the singularity module
-ml singularity
-
-export OMP_NUM_THREADS=${SLURM_NTASKS}
+# Update the below use of conda according to the HPC docs
+module load miniforge
+mamba activate katana
 
 START_YEAR=2019
 START_MONTH=10
 
 ## Update these variables with the actual paths ##
-BASIN_SETUP=/path/to/basin_setup/
 INPUT_DIR=/path/to/HRRR
 KATANA_OUTPUT_DIR=/path/to/katana/output/
 
 KATANA_INI=/path/to/katana.ini
-KATANA_IMAGE=/path/to/katana.sif
 ## -------------------------------------------- ##
 
 for MONTH in {0..11}; do
@@ -54,10 +51,8 @@ for MONTH in {0..11}; do
   sed -i -e "17s/katana_wn\.ini/katana_wn_${YEAR}${MONTH}\.ini/" ${MONTH_INI}
   sed -i -e "22s/katana\.log/katana_${YEAR}${MONTH}\.log/" ${MONTH_INI}
 
-  # Map local file paths to container paths
-  export SINGULARITY_BIND="${BASIN_SETUP}:/data/topo,${INPUT_DIR}:/data/input,${KATANA_OUTPUT_DIR}:/data/output"
   # Run
-  singularity exec ${KATANA_IMAGE} run_katana ${MONTH_INI} 1>&2
+  run_katana ${MONTH_INI} 1>&2
 
   if [ $? -ne 0 ]; then
     >&2 echo "ERROR processing ${YEAR}${MONTH}"

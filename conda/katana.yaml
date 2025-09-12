@@ -14,7 +14,6 @@ dependencies:
   - windninja==3.11.2
   - pip:
     - coloredlogs==15.0.1
-    - git+https://github.com/iSnobal/katana.git@main
+    - git+https://github.com/iSnobal/katana.git@20250822
     - inicheck==0.9.1
     - utm==0.4.0
-

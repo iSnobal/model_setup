@@ -28,7 +28,7 @@ The script takes a user-defined install location as the first argument. The
 default location is: `$HOME/iSnobal` if none is provided.
 
 ### Releasing a new model version
-Updating the [conda environment.yaml](environment.yaml) to use a newer version
+Updating the [conda environment.yaml](isnobal.yaml) to use a newer version
 of AWSM requires [creating a new release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release) 
 on the [AWSM GitHub repository](https://github.com/iSnobal/awsm). AWSM
 only depends on SMRF and any updates to the latter should be completed first
