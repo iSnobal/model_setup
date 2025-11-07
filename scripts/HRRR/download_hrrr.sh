@@ -29,8 +29,8 @@ export GRIB_AREA="-122.00:-105.00 32.00:49.00"
 PARALLEL_JOBS=16
 ## Number of Grib threads
 export GRIB_THREADS="-ncpu 2"
-## Log control
-export LOG_OUTPUT="true"
+## Control when checking file presence
+export EXIT_ON_SUCCESS="true"
 
 # When adding a new archive, also add the variable to function:
 #  check_alternate_archive
@@ -104,10 +104,11 @@ export -f check_alternate_archive
 check_file_existence(){
   # Check for existing file on disk and that it is not zero in size
   if [[ -s "${FILE_NAME}" ]]; then
-    if [[ "${1}" == "${LOG_OUTPUT}" ]]; then
+    if [[ "${1}" == "${EXIT_ON_SUCCESS}" ]]; then
       >&1 printf "  exists \n"
+      exit 0
     fi
-    exit 0
+    return 0
   fi
   return 3
 }
@@ -138,7 +139,7 @@ download_hrrr() {
   # Remove any previously missing files in archives and try again
   find . -type f -name "${FILE_NAME}.missing" -size 0 -delete
  
-  check_file_existence ${LOG_OUTPUT}
+  check_file_existence ${EXIT_ON_SUCCESS}
 
   check_file_in_archive ${ARCHIVE}
 
