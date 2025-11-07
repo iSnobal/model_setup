@@ -210,16 +210,17 @@ download_hrrr() {
         rm $TMP_FILE
         check_file_existence
 
-        # Create index file
-        wgrib2 -s ${FILE_NAME} > ${FILE_NAME}.idx
-
         if [[ $? -eq 3 ]] ; then
             printf "  File is still zero size\n"
         fi
       fi
     done
   fi
+
   if [ $? -eq 0 ]; then
+    # Create index file
+    wgrib2 -s ${FILE_NAME} > ${FILE_NAME}.idx
+  
     >&1 printf " created \n"
   fi
 }
