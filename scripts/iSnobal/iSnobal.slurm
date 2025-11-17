@@ -22,4 +22,4 @@ export OMP_NUM_THREADS=${SLURM_NTASKS}
 module load miniforge
 mamba activate isnobal
 
-awsm_daily ~/project-data/iSnobal/ERW/ERW_subset_awsm.ini
+awsm ~/project-data/iSnobal/ERW/ERW_subset_awsm.ini -np
