@@ -11,7 +11,7 @@ dependencies:
   - pytz
   - regex=2021
   - wgrib2
-  - windninja==3.11.2
+  - windninja
   - pip:
     - coloredlogs==15.0.1
     - git+https://github.com/iSnobal/katana.git@20250822
