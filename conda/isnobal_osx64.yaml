@@ -37,6 +37,6 @@ dependencies:
 - pip:
     - inicheck
     - spatialnc
-#    - git+https://github.com/iSnobal/awsm.git@20251208
+    - git+https://github.com/iSnobal/awsm.git@20251208
 
 
