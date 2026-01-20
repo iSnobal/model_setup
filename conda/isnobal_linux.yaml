@@ -19,6 +19,7 @@ dependencies:
 - pip
 - progressbar2
 - pykrige>1.5
+- pytest
 - python=3.9
 - pytz
 - pyyaml

@@ -22,6 +22,7 @@ dependencies:
 - pip
 - progressbar2
 - pykrige>1.5
+- pytest
 - python=3.9
 - pytz
 - pyyaml
@@ -36,6 +37,6 @@ dependencies:
 - pip:
     - inicheck
     - spatialnc
-    - git+https://github.com/iSnobal/awsm.git@20251208
+#    - git+https://github.com/iSnobal/awsm.git@20251208
 
 
