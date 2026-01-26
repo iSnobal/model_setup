@@ -4,12 +4,19 @@ This folder contains conda environment files and a model development environment
 setup script.
 
 ## Model execution environment
-The following steps create a new environment to execute the iSnobal model.
+The following steps create a new environment to execute the iSnobal model. Note that environments are provided for both Linux and MacOS systems. For large iSnobal model runs, users are encouraged to use a Linux machine with adequate compute resources. The MacOS environment is provided primarily to allow users to run PySnobal (1-D point model) locally and/or conduct awsm runs for small domains and periods of time. 
 
 ### Set up a new conda environment
+#### For Linux
 ```
-  conda env create -f isnobal.yaml
+  conda env create -f isnobal_linux.yaml
 ```
+
+#### For MacOS
+```
+  ./install_isnobal_macOS.sh
+```
+**Note**: This environment has been configured to run on Macs with both M* (arm64) and Intel (x86-64) CPU architectures. This bash script handles installing the conda environment and configuring the environment target architecture, critical when installing on a newer Mac with an M* (arm64) chip.
 
 ### Activate the environment
 ```

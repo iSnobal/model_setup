@@ -5,7 +5,7 @@ set -euo pipefail
 
 DEFAULT_ENV_NAME="isnobal"
 ENV_NAME="${1:-$DEFAULT_ENV_NAME}"
-ENV_FILE="isnobal_osx64.yaml"
+ENV_FILE="isnobal_macOS.yaml"
 TARGET_SUBDIR="osx-64"
 
 # ---- basic checks ----------------------------------------------------------
