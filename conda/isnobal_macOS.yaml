@@ -27,9 +27,7 @@ dependencies:
 - pytz
 - pyyaml
 - regex<2021
-- requests
 - scipy<1.12
-- setuptools_scm
 - siphon
 - urllib3
 - utm==0.5
