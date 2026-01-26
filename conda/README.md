@@ -65,7 +65,3 @@ the actual release name.
 ### Basin Setup
 Separate setup to run [basin_setup](https://github.com/USDA-ARS-NWRC/basin_setup)
 to prepare a model domain.
-
-### IPW
-Experimental setup for the old 1-D version of Snobal. No support can be provided
-for this.
