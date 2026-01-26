@@ -5,27 +5,36 @@ dependencies:
 - beautifulsoup4
 - cfgrib
 - cftime=1.5.2
+- clang_osx-64
 - coloredlogs
 - cython
 - dateparser=0.7.2
 - gdal=3.11
 - libgdal-grib=3.11
 - libgdal-netcdf=3.11
+- llvm-openmp
 - make
 - netCDF4
 - numpy<1.23
+- openmpi=4
 - pandas<1.4
 - parallel
 - pip
+- progressbar2
 - pykrige>1.5
+- pytest
 - python=3.9
 - pytz
+- pyyaml
 - regex<2021
 - scipy<1.12
 - siphon
+- urllib3
 - utm==0.5
 - xarray<2023
 - pip:
     - inicheck
     - spatialnc
-    - git+https://github.com/iSnobal/awsm.git@20251208
+    - git+https://github.com/iSnobal/awsm.git@20260126
+
+
