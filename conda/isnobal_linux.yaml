@@ -13,6 +13,7 @@ dependencies:
 - libgdal-netcdf=3.11
 - make
 - netCDF4
+- numexpr<2.10
 - numpy<1.23
 - pandas<1.4
 - parallel
