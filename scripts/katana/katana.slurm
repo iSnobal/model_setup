@@ -23,7 +23,6 @@ START_YEAR=2019
 START_MONTH=10
 
 ## Update these variables with the actual paths ##
-INPUT_DIR=/path/to/HRRR
 KATANA_OUTPUT_DIR=/path/to/katana/output/
 
 KATANA_INI=/path/to/katana.ini
