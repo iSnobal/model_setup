@@ -24,9 +24,9 @@ KATANA_INI=/path/to/katana.ini
 ## -------------------------------------------- ##
 
 # Extract variables from ini file.
-START_DATE=$(grep -E '^start_date' "$KATANA_INI" | cut -d':' -f2 | awk '{$1=$1;print}')
-START_YEAR=$(echo "$START_DATE" | cut -d'-' -f1)
-START_MONTH=$(echo "$START_DATE" | cut -d'-' -f2)
+START_DATE=$(grep -E '^start_date' "$KATANA_INI" | cut -d':' -f2- | xargs)
+START_YEAR=$(date -d "$START_DATE" +%Y)
+START_MONTH=$(date -d "$START_DATE" +%m)
 INPUT_DIR=$(grep -E '^hrrr_directory' "$KATANA_INI" | cut -d':' -f2 | awk '{$1=$1;print}')
 KATANA_OUTPUT_DIR=$(grep -E '^out_location' "$KATANA_INI" | cut -d':' -f2 | awk '{$1=$1;print}')
 
