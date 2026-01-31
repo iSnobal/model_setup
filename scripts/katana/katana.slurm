@@ -19,14 +19,16 @@
 module load miniforge
 mamba activate katana
 
-START_YEAR=2019
-START_MONTH=10
-
-## Update these variables with the actual paths ##
-KATANA_OUTPUT_DIR=/path/to/katana/output/
-
+## Update path to katana ini file ##
 KATANA_INI=/path/to/katana.ini
 ## -------------------------------------------- ##
+
+# Extract variables from ini file.
+START_DATE=$(grep -E '^start_date' "$KATANA_INI" | cut -d':' -f2- | xargs)
+START_YEAR=$(date -d "$START_DATE" +%Y)
+START_MONTH=$(date -d "$START_DATE" +%m)
+INPUT_DIR=$(grep -E '^hrrr_directory' "$KATANA_INI" | cut -d':' -f2 | awk '{$1=$1;print}')
+KATANA_OUTPUT_DIR=$(grep -E '^out_location' "$KATANA_INI" | cut -d':' -f2 | awk '{$1=$1;print}')
 
 for MONTH in {0..11}; do
   START=($(date -d "${START_MONTH}/01/${START_YEAR} + ${MONTH} month" "+%m %Y"))
