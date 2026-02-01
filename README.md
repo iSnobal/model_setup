@@ -26,4 +26,5 @@ Sample `.ini` files for the iSnobal run configuration.
 
 ## Scripts
 
-Helper scripts to download or prepare data and execute the model components.
+Helper scripts to download or prepare data and execute the model components.  
+This includes example SLURM scripts for High Performance Compute (HPC) environments.
