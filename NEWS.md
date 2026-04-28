@@ -18,7 +18,7 @@ _None_
 
 ## TopoCalc
 * Improve `skew()` function by using linear interpolation
-* Update local topography equations to use Dozier (2022)
+* Update local topography equations to use [Dozier (2022)](https://doi.org/10.1109/LGRS.2021.3125278)
 
 ### Release notes
 https://github.com/iSnobal/topocalc/releases/tag/20260309
