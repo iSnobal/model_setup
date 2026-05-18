@@ -1,5 +1,6 @@
 # News
-Overview of model component changes per release
+Highlights model component changes per release. This is not a comprehensive list
+and each linked release note should be consulted for a full list of changes.
 
 # 20260309
 ## AWSM
@@ -22,3 +23,41 @@ _None_
 
 ### Release notes
 https://github.com/iSnobal/topocalc/releases/tag/20260309
+
+# 20260126
+## AWSM
+* PySnobal API updates [PR#30](https://github.com/iSnobal/awsm/pull/30)
+
+## SMRF
+_None_
+
+## PySnobal
+* Re-activate point execution [PR#11](https://github.com/iSnobal/pysnobal/pull/9)
+
+### Release notes
+https://github.com/iSnobal/pysnobal/releases/tag/20260126
+
+## TopoCalc
+* Add support of OS X [PR#10](https://github.com/iSnobal/topocalc/pull/10)
+
+# 20251208
+## AWSM
+* Improve command line interface [PR#24](https://github.com/iSnobal/awsm/pull/24)
+* Remove unused config file options [PR#26](https://github.com/iSnobal/awsm/pull/26)
+
+### Release notes
+https://github.com/iSnobal/awsm/releases/tag/20251208
+
+## SMRF
+* Add HRRR Longwave and Shortwave as forcing input options
+[PR#22](https://github.com/iSnobal/smrf/pull/22) and [PR#42](https://github.com/iSnobal/smrf/pull/42)
+* Remove option to run SMRF in threaded mode [PR#23](https://github.com/iSnobal/smrf/pull/23)
+
+### Release notes
+https://github.com/iSnobal/smrf/releases/tag/20251208
+
+## PySnobal
+* Minor logging improvements
+
+## TopoCalc
+_None_
