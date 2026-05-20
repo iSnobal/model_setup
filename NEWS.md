@@ -2,6 +2,35 @@
 Highlights model component changes per release. This is not a comprehensive list
 and each linked release note should be consulted for a full list of changes.
 
+# 20260520
+## AWSM
+_None_
+
+## SMRF
+* Add new albedo decay option to support post fire scenarios. [PR#27](https://github.com/iSnobal/smrf/pull/27)
+
+### Breaking changes
+Renamed parameters in `[albedo]` section of the ini file.
+```
+[albedo]
+date_method_start_decay -> decay_start
+date_method_end_decay -> decay_end
+```
+### New ini file parameters
+```
+[albedo]
+post_fire: True|False
+post_fire_k_burned: float
+```
+### Release notes
+https://github.com/iSnobal/smrf/releases/tag/20260520
+
+## PySnobal
+_None_
+
+## TopoCalc
+_None_
+
 # 20260309
 ## AWSM
 * Updates test "gold" files with TopoCalc changes
