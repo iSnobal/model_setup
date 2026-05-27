@@ -24,16 +24,16 @@ a *to-be-staged* repository and organize as follows:
 <landfire-dir>/
   US_140EVT_20180618/
     Grid/us_140evt/hdr.adf
-    CSV_Data/LF_140EVH_05092014.csv
   US_140EVH_20180618/
     Grid/us_140evh/hdr.adf
+    CSV_Data/LF_140EVH_05092014.csv
 ```
 
 A veg params CSV mapping LANDFIRE EVT class IDs to SMRF canopy parameters (tau, k)
 is also required. Pass its path with `--veg-params-csv`. In this approach, all 
-vegetation parameters are categorical or discrete variables
+vegetation parameters are categorical or discrete variables.
 
-> **SnowHydRO group (UU CHPC):** all required datasets are staged at
+> **SnowHydRO group (UU CHPC):** all required datasets are currently staged at
 > `/uufs/chpc.utah.edu/common/home/skiles-group3/LANDFIRE/`.
 
 ### Option B — user-supplied rasters (`--veg-dir`)
