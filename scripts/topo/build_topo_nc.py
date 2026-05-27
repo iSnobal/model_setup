@@ -58,7 +58,7 @@ def _padded_extents(polygon, cell_size, pad_cells=5):
     ymin = math.floor((ymin - pad) / cell_size) * cell_size
     xmax = math.ceil((xmax + pad) / cell_size) * cell_size
     ymax = math.ceil((ymax + pad) / cell_size) * cell_size
-    return [xmin, ymin, xmax, ymax], gdf.crs.srs
+    return [xmin, ymin, xmax, ymax], f"EPSG:{gdf.crs.to_epsg()}"
 
 
 def _clip_raster(src, dst, crs, extents, cell_size, resample="near"):
@@ -101,14 +101,24 @@ def _basin_mask(polygon, dem_da):
     )
 
 
-def _veg_tau_k(evt_arr, veg_params_csv):
-    """Map EVT pixel values → tau and k arrays using the veg params CSV."""
+def _veg_tau_k(evt_da, veg_params_csv):
+    """Map EVT pixel values → tau and k arrays using the veg params CSV.
+
+    NoData pixels (from padded extents outside valid LANDFIRE coverage) are
+    mapped to open/no-canopy values (tau=1, k=0) rather than raising.
+    """
     df = pd.read_csv(veg_params_csv)
     idx_col = "landfire140" if "landfire140" in df.columns else df.columns[0]
     df = df.set_index(idx_col)
     df = df[~df.index.duplicated(keep="first")]
 
-    missing = set(np.unique(evt_arr)) - set(df.index)
+    evt_arr = evt_da.values
+    nodata = evt_da.rio.nodata
+    nodata_mask = np.zeros(evt_arr.shape, dtype=bool) if nodata is None else (evt_arr == nodata)
+    if np.any(nodata_mask):
+        print(f"  Warning: {nodata_mask.sum()} NoData EVT pixels mapped to open/no-canopy (tau=1, k=0)")
+
+    missing = set(np.unique(evt_arr[~nodata_mask])) - set(df.index)
     if missing:
         # tau/k have no safe fallback — missing class would silently corrupt radiation
         raise ValueError(f"EVT classes not in {veg_params_csv}: {missing}")
@@ -116,6 +126,8 @@ def _veg_tau_k(evt_arr, veg_params_csv):
     flat = pd.Series(evt_arr.ravel())
     tau = flat.map(df["tau"]).values.reshape(evt_arr.shape)
     k = flat.map(df["k"]).values.reshape(evt_arr.shape)
+    tau[nodata_mask] = 1.0
+    k[nodata_mask] = 0.0
     return tau, k
 
 
@@ -158,6 +170,8 @@ def validate(topo_nc, expected_epsg):
         if not wkt:
             raise RuntimeError("topo.nc 'projection' has no crs_wkt or spatial_ref attribute")
         actual = CRS.from_wkt(wkt).to_epsg()
+    if actual is None:
+        raise RuntimeError("topo.nc CRS does not resolve to an EPSG code")
     if actual != expected_epsg:
         raise ValueError(f"topo.nc CRS mismatch: EPSG:{actual} != expected EPSG:{expected_epsg}")
     print(f"  Projection OK, EPSG:{actual}")
@@ -214,7 +228,7 @@ def build_topo(polygon, dem_file, landfire_dir, veg_params_csv,
         evt_da = _read_raster(evt_clip)
         evh_da = _read_raster(evh_clip)
         type_arr = evt_da.values
-        tau_arr, k_arr = _veg_tau_k(type_arr, veg_params_csv)
+        tau_arr, k_arr = _veg_tau_k(evt_da, veg_params_csv)
         height_arr = _veg_height(evh_da.values, str(landfire_dir / _EVH_CSV))
 
     print("Assembling dataset...")
@@ -331,6 +345,11 @@ def main():
         sys.exit(f"DEM file not found: {dem_file}. Pass -d or run fetch_dem.py first.")
     if not epsg:
         sys.exit("EPSG not found. Pass -e or run fetch_basin.py first.")
+    if not (32601 <= epsg <= 32660 or 32701 <= epsg <= 32760):
+        sys.exit(
+            f"EPSG:{epsg} is not a valid UTM zone. "
+            "Expected 32601-32660 (northern) or 32701-32760 (southern)."
+        )
 
     landfire_dir = Path(args.landfire_dir)
     veg_params_csv = Path(args.veg_params_csv)

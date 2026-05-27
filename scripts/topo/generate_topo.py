@@ -18,8 +18,6 @@ from pathlib import Path
 # Allow sibling scripts to be imported regardless of working directory
 sys.path.insert(0, str(Path(__file__).parent))
 
-import geopandas as gpd
-
 import build_topo_nc as btopo
 import fetch_basin as fb
 import fetch_dem as fd
@@ -60,6 +58,9 @@ def main():
                              f"--landfire-dir. Must contain: {expected}")
     args = parser.parse_args()
 
+    if args.epsg:
+        fb.validate_utm_epsg(args.epsg)
+
     output_dir = Path(args.output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     landfire_dir = Path(args.landfire_dir)
@@ -74,7 +75,7 @@ def main():
     print("\n[1/3] Fetching basin boundary...")
     if args.huc_id:
         polygon, utm_epsg, bbox_wgs84, basin_name = fb.fetch_huc_polygon(
-            args.huc_id, output_dir)
+            args.huc_id, output_dir, epsg_override=args.epsg)
 
     elif args.basin_name:
         matches = fb.search_huc_by_name(args.basin_name, args.huc_level)
@@ -90,22 +91,13 @@ def main():
         huc_id = matches[huc_field].iloc[0]
         basin_name = matches["name"].iloc[0]
         print(f"  Found: {basin_name} ({huc_id})")
-        polygon, utm_epsg, bbox_wgs84, _ = fb.fetch_huc_polygon(huc_id, output_dir)
+        polygon, utm_epsg, bbox_wgs84, _ = fb.fetch_huc_polygon(huc_id, output_dir, epsg_override=args.epsg)
 
     else:
         polygon = Path(args.polygon).resolve()
         if not polygon.exists():
             sys.exit(f"Basin file not found: {polygon}")
-        gdf_wgs84 = gpd.read_file(polygon).to_crs("EPSG:4326")
-        xmin, ymin, xmax, ymax = gdf_wgs84.total_bounds
-        lon_center = (xmin + xmax) / 2
-        lat_center = (ymin + ymax) / 2
-        utm_epsg = fb.utm_epsg_from_lonlat(lon_center, lat_center)
-        bbox_wgs84 = (xmin, ymin, xmax, ymax)
-        basin_name = polygon.stem
-
-    if args.epsg:
-        utm_epsg = args.epsg
+        utm_epsg, bbox_wgs84, basin_name = fb.validate_existing_polygon(polygon, args.epsg)
 
     fb.write_env(output_dir, polygon, utm_epsg, bbox_wgs84, basin_name)
     print(f"  Basin file: {polygon}")

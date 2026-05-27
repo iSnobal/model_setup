@@ -46,6 +46,14 @@ def utm_epsg_from_lonlat(lon, lat):
     return 32600 + zone if lat >= 0 else 32700 + zone
 
 
+def validate_utm_epsg(epsg):
+    if not (32601 <= epsg <= 32660 or 32701 <= epsg <= 32760):
+        sys.exit(
+            f"EPSG:{epsg} is not a valid UTM zone. "
+            "Expected 32601-32660 (northern) or 32701-32760 (southern)."
+        )
+
+
 def validate_huc_id(huc_id):
     """Validate that the input HUC ID is supported."""
     huc_id = str(huc_id).strip()
@@ -62,7 +70,28 @@ def validate_huc_id(huc_id):
     return huc_id, huc_level
 
 
-def fetch_huc_polygon(huc_id, output_dir):
+def validate_existing_polygon(polygon_path, epsg_override=None):
+    """Validate CRS of a user-supplied polygon. Returns (utm_epsg, bbox_wgs84, basin_name)."""
+    gdf = gpd.read_file(polygon_path)
+    if gdf.crs is None:
+        sys.exit(f"Polygon file must have a defined projected CRS: {polygon_path}")
+    if not gdf.crs.is_projected:
+        sys.exit(f"Polygon CRS must be projected/UTM, not geographic: {gdf.crs}")
+    polygon_epsg = gdf.crs.to_epsg()
+    if polygon_epsg is None:
+        sys.exit(f"Polygon CRS must resolve to an EPSG code so it can be validated: {gdf.crs}")
+    gdf_wgs84 = gdf.to_crs("EPSG:4326")
+    xmin, ymin, xmax, ymax = gdf_wgs84.total_bounds
+    expected_epsg = epsg_override or utm_epsg_from_lonlat((xmin + xmax) / 2, (ymin + ymax) / 2)
+    if polygon_epsg != expected_epsg:
+        sys.exit(
+            "Polygon CRS EPSG does not match the target UTM EPSG "
+            f"(polygon: EPSG:{polygon_epsg}, expected: EPSG:{expected_epsg})"
+        )
+    return expected_epsg, (xmin, ymin, xmax, ymax), polygon_path.stem
+
+
+def fetch_huc_polygon(huc_id, output_dir, epsg_override=None):
     """Query WBD for a HUC boundary, reproject to UTM, and save as GeoPackage."""
     huc_id, huc_level = validate_huc_id(huc_id)
     field = WBD_FIELD[huc_level]
@@ -71,7 +100,7 @@ def fetch_huc_polygon(huc_id, output_dir):
         raise ValueError(f"No WBD features found for HUC ID '{huc_id}'")
 
     xmin, ymin, xmax, ymax = gdf.total_bounds
-    utm_epsg = utm_epsg_from_lonlat((xmin + xmax) / 2, (ymin + ymax) / 2)
+    utm_epsg = epsg_override or utm_epsg_from_lonlat((xmin + xmax) / 2, (ymin + ymax) / 2)
     bbox_wgs84 = (xmin, ymin, xmax, ymax)
     basin_name = gdf.iloc[0].get("name", f"HUC{huc_id}")
 
@@ -128,15 +157,16 @@ def main():
                         help="Override UTM EPSG (auto-detected from centroid if not given)")
     args = parser.parse_args()
 
+    if args.epsg:
+        validate_utm_epsg(args.epsg)
+
     output_dir = Path(args.output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if args.huc_id:
         print(f"Fetching HUC {args.huc_id} from USGS WBD...")
         polygon, utm_epsg, bbox_wgs84, basin_name = fetch_huc_polygon(
-            args.huc_id, output_dir)
-        if args.epsg:
-            utm_epsg = args.epsg
+            args.huc_id, output_dir, epsg_override=args.epsg)
 
     elif args.basin_name:
         print(f"Searching USGS WBD HUC{args.huc_level} for '{args.basin_name}'...")
@@ -153,41 +183,13 @@ def main():
         huc_id = matches[huc_field].iloc[0]
         basin_name = matches["name"].iloc[0]
         print(f"Found: {basin_name} ({huc_id})")
-        polygon, utm_epsg, bbox_wgs84, _ = fetch_huc_polygon(huc_id, output_dir)
-        if args.epsg:
-            utm_epsg = args.epsg
+        polygon, utm_epsg, bbox_wgs84, _ = fetch_huc_polygon(huc_id, output_dir, epsg_override=args.epsg)
 
     else:
         polygon = Path(args.polygon).resolve()
         if not polygon.exists():
             sys.exit(f"Polygon file not found: {polygon}")
-        gdf = gpd.read_file(polygon)
-        if gdf.crs is None:
-            sys.exit(
-                f"Polygon file must have a defined projected CRS: {polygon}"
-            )
-        if not gdf.crs.is_projected:
-            sys.exit(
-                f"Polygon CRS must be projected/UTM, not geographic: {gdf.crs}"
-            )
-        polygon_epsg = gdf.crs.to_epsg()
-        if polygon_epsg is None:
-            sys.exit(
-                f"Polygon CRS must resolve to an EPSG code so it can be validated: {gdf.crs}"
-            )
-        gdf_wgs84 = gdf.to_crs("EPSG:4326")
-        xmin, ymin, xmax, ymax = gdf_wgs84.total_bounds
-        lon_center = (xmin + xmax) / 2
-        lat_center = (ymin + ymax) / 2
-        expected_epsg = args.epsg or utm_epsg_from_lonlat(lon_center, lat_center)
-        if polygon_epsg != expected_epsg:
-            sys.exit(
-                "Polygon CRS EPSG does not match the target UTM EPSG "
-                f"(polygon: EPSG:{polygon_epsg}, expected: EPSG:{expected_epsg})"
-            )
-        utm_epsg = expected_epsg
-        bbox_wgs84 = (xmin, ymin, xmax, ymax)
-        basin_name = polygon.stem
+        utm_epsg, bbox_wgs84, basin_name = validate_existing_polygon(polygon, args.epsg)
 
     env_path = write_env(output_dir, polygon, utm_epsg, bbox_wgs84, basin_name)
     print(f"Basin file: {polygon}")

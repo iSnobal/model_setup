@@ -11,7 +11,6 @@ EPSG and bounding box if not provided explicitly. Appends BASIN_DEM to basin.env
 Usage:
     python fetch_dem.py -o ./newfork_scripts
     python fetch_dem.py -o ./newfork_scripts --download-tiles
-    python fetch_dem.py -o ./newfork_scripts --download-tiles --skip-download
 """
 
 import argparse
@@ -95,6 +94,8 @@ def download_dem_tiles(bbox_wgs84, output_dir):
                 with open(dest, "wb") as f:
                     for chunk in r.iter_content(chunk_size=8192):
                         f.write(chunk)
+            if dest.stat().st_size == 0:
+                raise RuntimeError(f"Downloaded tile is empty (truncated download?): {dest}")
         else:
             print(f"    {dest.name} already exists, skipping")
         tile_files.append(str(dest))
@@ -156,6 +157,11 @@ def main():
     if not epsg:
         sys.exit("EPSG not provided and BASIN_EPSG not in basin.env. "
                  "Run fetch_basin.py first or pass -e EPSG.")
+    if not (32601 <= epsg <= 32660 or 32701 <= epsg <= 32760):
+        sys.exit(
+            f"EPSG:{epsg} is not a valid UTM zone. "
+            "Expected 32601-32660 (northern) or 32701-32760 (southern)."
+        )
 
     bbox_str = env.get("BASIN_BBOX", "")
     if not bbox_str:

@@ -29,9 +29,9 @@ a *to-be-staged* repository and organize as follows:
     CSV_Data/LF_140EVH_05092014.csv
 ```
 
-A veg params CSV mapping LANDFIRE EVT class IDs to SMRF canopy parameters (tau, k)
+A veg params CSV mapping LANDFIRE EVH class IDs to SMRF canopy parameters (tau, k)
 is also required. Pass its path with `--veg-params-csv`. In this approach, all 
-vegetation parameters are categorical or discrete variables.
+vegetation parameters are categorical or discrete values.
 
 > **SnowHydRO group (UU CHPC):** all required datasets are currently staged at
 > `/uufs/chpc.utah.edu/common/home/skiles-group3/LANDFIRE/`.
@@ -160,3 +160,5 @@ generate_topo.py flags:
                          Must contain: veg_type.tif, veg_height.tif, veg_tau.tif, veg_k.tif
   --download-dem-tiles   Download DEM tiles to disk before warping (use for SLURM/offline)
 ```
+## Acknowledgements
+Co-creation with Claude Sonnet 4.6
