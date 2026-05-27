@@ -8,7 +8,7 @@
 #   ./download_hrrr.sh YYYYMMDD,YYYYMMDD (Archive)
 #
 # The third is optional and can specify the archive source. Default
-# is to get from Google and can be changed to the University of Utah by
+# is to get from Google and can be changed to the University of Utah
 # by passing 'UofU', Amazon with 'AWS', or Microsoft with 'Azure'.
 
 # Colorado Basin River bounding box from:
@@ -170,8 +170,7 @@ download_hrrr() {
 
       >&2 printf "  ** Checking previous hour: hrrr.${ALT_DATE}/${FILE_NAME}"
 
-      check_file_existence
-      if [[ $? -eq 0 ]]; then
+      if [[ "${ALT_DATE}" == "${DATE}" ]] && check_file_existence; then
         >&2 printf "  surrogate file exists on disk, copying now...\n"
         "$COPY_SCRIPT" "$FILE_NAME" "$ORIGINAL_FILE"
         exit 0
@@ -184,6 +183,7 @@ download_hrrr() {
 
         if [[ $? -eq 3 ]]; then
           >&2 printf "  not available in previous hour\n"
+          # Safe for parallel jobs: single short filenames
           echo "$ORIGINAL_FILE" >> "../missing_HRRR_files_${DATE}.log"
           exit 0
         fi
@@ -217,6 +217,7 @@ download_hrrr() {
     for ALT_ARCHIVE in "$UofU_ARCHIVE" "$AWS_ARCHIVE" "$Google_ARCHIVE" "$Azure_ARCHIVE"; do
       check_file_in_archive "$ALT_ARCHIVE"
       if [[ $? -eq 0 ]]; then
+        get_grib_range
         mkfifo "$TMP_FILE"
         curl -s --range "${MIN_RANGE}-${MAX_RANGE}" "${ARCHIVE_URL}" -o "$TMP_FILE" | \
         wgrib2 "$TMP_FILE" -v0 ${GRIB_THREADS} -set_grib_type same -small_grib ${GRIB_AREA} - | \
@@ -238,7 +239,7 @@ download_hrrr() {
   fi
 
   # If the file was successfully downloaded but with a different name, copy it to the expected name
-  if [[ -n "$ORIGINAL_FILE" ]]; then
+  if [[ -n "$ORIGINAL_FILE" ]] && [[ -s "$FILE_NAME" ]]; then
     "$COPY_SCRIPT" "$FILE_NAME" "$ORIGINAL_FILE"
   fi
 }
