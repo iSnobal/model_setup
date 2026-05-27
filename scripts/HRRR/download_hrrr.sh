@@ -134,7 +134,7 @@ download_hrrr() {
   DAY_HOUR=$1
   FC_HOUR=$2
   FILE_NAME="hrrr.t$(printf "%02d" $DAY_HOUR)z.wrfsfcf0${FC_HOUR}.grib2"
-  ORIGINAL_FILE=""
+  MISSING_FILE=""
 
   printf "File: ${FILE_NAME} \n"
 
@@ -158,7 +158,7 @@ download_hrrr() {
 
     # Try a previous hour of the day if either F01 or F06 is missing
     if [[ ${FC_HOUR} -eq 1 ]] || [[ ${FC_HOUR} -eq 6 ]]; then
-      ORIGINAL_FILE="$FILE_NAME"
+      MISSING_FILE="$FILE_NAME"
       if [[ ${FC_HOUR} -eq 1 ]]; then
         COPY_SCRIPT="$SCRIPT_DIR/copy_1st_hour.sh"
       else
@@ -172,7 +172,7 @@ download_hrrr() {
 
       if [[ "${ALT_DATE}" == "${DATE}" ]] && check_file_existence; then
         >&2 printf "  surrogate file exists on disk, copying now...\n"
-        "$COPY_SCRIPT" "$FILE_NAME" "$ORIGINAL_FILE"
+        "$COPY_SCRIPT" "$FILE_NAME" "$MISSING_FILE"
         exit 0
       fi
 
@@ -184,7 +184,7 @@ download_hrrr() {
         if [[ $? -eq 3 ]]; then
           >&2 printf "  not available in previous hour\n"
           # Safe for parallel jobs: single short filenames
-          echo "$ORIGINAL_FILE" >> "../missing_HRRR_files_${DATE}.log"
+          echo "$MISSING_FILE" >> "../missing_HRRR_files_${DATE}.log"
           exit 0
         fi
       else
@@ -238,9 +238,9 @@ download_hrrr() {
     printf " created \n"
   fi
 
-  # If the file was successfully downloaded but with a different name, copy it to the expected name
-  if [[ -n "$ORIGINAL_FILE" ]] && [[ -s "$FILE_NAME" ]]; then
-    "$COPY_SCRIPT" "$FILE_NAME" "$ORIGINAL_FILE"
+  # If the previous hour forecast successfully downloaded, replace missing file with it
+  if [[ -n "$MISSING_FILE" ]] && [[ -s "$FILE_NAME" ]]; then
+    "$COPY_SCRIPT" "$FILE_NAME" "$MISSING_FILE"
   fi
 }
 export -f download_hrrr
