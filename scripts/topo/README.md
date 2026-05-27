@@ -159,5 +159,4 @@ generate_topo.py flags:
   --veg-dir DIR          User-supplied vegetation rasters, overrides --landfire-dir.
                          Must contain: veg_type.tif, veg_height.tif, veg_tau.tif, veg_k.tif
   --download-dem-tiles   Download DEM tiles to disk before warping (use for SLURM/offline)
-  --skip-dem-download    Reuse existing tiles in <output>/dem_tiles/ (requires --download-dem-tiles)
 ```

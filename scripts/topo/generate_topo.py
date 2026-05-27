@@ -12,7 +12,6 @@ Example usage:
 """
 
 import argparse
-import os
 import sys
 from pathlib import Path
 
@@ -35,7 +34,7 @@ def main():
             "  generate_topo.py (-huc HUC_ID | -n NAME | -s POLY) -o DIR\n"
             "                   [-res METERS] [-level {2,4,6,8,10,12}] [-e EPSG]\n"
             "                   [--landfire-dir DIR] [--veg-params-csv CSV | --veg-dir DIR]\n"
-            "                   [--download-dem-tiles] [--skip-dem-download]"
+            "                   [--download-dem-tiles]"
         ),
         epilog=__doc__,
     )
@@ -55,8 +54,6 @@ def main():
     parser.add_argument("--veg-params-csv", default=str(btopo.VEG_PARAMS_CSV_DEFAULT), metavar="CSV")
     parser.add_argument("--download-dem-tiles", action="store_true",
                         help="Download DEM tiles to disk before warping (use for SLURM/offline)")
-    parser.add_argument("--skip-dem-download", action="store_true",
-                        help="Reuse existing tiles in <output-dir>/dem_tiles/ (from previous run w/ --download-dem-tiles)")
     expected = ", ".join(fname for fname, _ in btopo.VEG_DIR_FILES.values())
     parser.add_argument("--veg-dir", default=None, metavar="DIR",
                         help=f"Directory of user-derived vegetation rasters, overrides "
@@ -115,12 +112,7 @@ def main():
     print(f"  EPSG      : {utm_epsg}")
 
     print("\n[2/3] Building DEM...")
-    if args.skip_dem_download:
-        tile_files = [str(p) for p in (output_dir / "dem_tiles").glob("*.tif")]
-        print(f"  Reusing {len(tile_files)} existing tile(s)")
-        if not tile_files:
-            sys.exit(f"No tiles in {output_dir / 'dem_tiles'}. Remove --skip-dem-download.")
-    elif args.download_dem_tiles:
+    if args.download_dem_tiles:
         tile_files = fd.download_dem_tiles(bbox_wgs84, output_dir)
     else:
         tile_files = fd.stream_dem_tiles(bbox_wgs84)

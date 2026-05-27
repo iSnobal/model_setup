@@ -135,7 +135,7 @@ def main():
         description="Build a UTM-projected DEM mosaic from USGS 3DEP tiles",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         usage=("\n  fetch_dem.py -o DIR [-res METERS] [-e EPSG]"
-               " [--download-tiles] [--skip-download]"),
+               " [--download-tiles]"),
         epilog=__doc__,
     )
     parser.add_argument("-o", "--output-dir", required=True, metavar="DIR",
@@ -146,9 +146,6 @@ def main():
                         help="UTM EPSG — reads BASIN_EPSG from basin.env if not given")
     parser.add_argument("--download-tiles", action="store_true",
                         help="Download tiles to disk before warping (use for SLURM/offline)")
-    parser.add_argument("--skip-download", action="store_true",
-                        help="Reuse existing tiles in <output-dir>/dem_tiles/ "
-                             "(requires --download-tiles)")
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir).resolve()
@@ -164,12 +161,7 @@ def main():
         sys.exit("BASIN_BBOX not in basin.env. Run fetch_basin.py first.")
     bbox_wgs84 = tuple(float(x) for x in bbox_str.split(","))
 
-    if args.skip_download:
-        tile_files = [str(p) for p in (output_dir / "dem_tiles").glob("*.tif")]
-        print(f"Reusing {len(tile_files)} existing tile(s)")
-        if not tile_files:
-            sys.exit(f"No .tif tiles in {output_dir / 'dem_tiles'}. Remove --skip-download.")
-    elif args.download_tiles:
+    if args.download_tiles:
         print("Downloading 3DEP 1/3 arc-second DEM tiles...")
         tile_files = download_dem_tiles(bbox_wgs84, output_dir)
     else:
