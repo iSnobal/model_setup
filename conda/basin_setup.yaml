@@ -8,6 +8,8 @@ dependencies:
   - netcdf4
   - numpy
   - pandas
+  - pyproj
+  - rasterio
   - requests
   - rioxarray
   - xarray
