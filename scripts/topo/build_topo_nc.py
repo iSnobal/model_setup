@@ -140,6 +140,12 @@ def _projection_var(crs_str):
     attrs = crs.to_cf()
     attrs["crs_wkt"] = wkt
     attrs["spatial_ref"] = wkt
+    # smrf/data/load_topo.py requires utm_zone_number as an integer attribute
+    epsg = crs.to_epsg()
+    if epsg and 32601 <= epsg <= 32660:
+        attrs["utm_zone_number"] = epsg - 32600
+    elif epsg and 32701 <= epsg <= 32760:
+        attrs["utm_zone_number"] = epsg - 32700
     return xr.DataArray(0, attrs=attrs)
 
 
