@@ -31,6 +31,7 @@ PARALLEL_JOBS=16
 ## Number of Grib threads
 export GRIB_THREADS="-ncpu 2"
 ## Control when checking file presence
+export SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export EXIT_ON_SUCCESS="true"
 
 # When adding a new archive, also add the variable to function:
@@ -133,6 +134,7 @@ download_hrrr() {
   DAY_HOUR=$1
   FC_HOUR=$2
   FILE_NAME="hrrr.t$(printf "%02d" $DAY_HOUR)z.wrfsfcf0${FC_HOUR}.grib2"
+  ORIGINAL_FILE=""
 
   printf "File: ${FILE_NAME} \n"
 
@@ -156,6 +158,12 @@ download_hrrr() {
 
     # Try a previous hour of the day if either F01 or F06 is missing
     if [[ ${FC_HOUR} -eq 1 ]] || [[ ${FC_HOUR} -eq 6 ]]; then
+      ORIGINAL_FILE="$FILE_NAME"
+      if [[ ${FC_HOUR} -eq 1 ]]; then
+        COPY_SCRIPT="$SCRIPT_DIR/copy_1st_hour.sh"
+      else
+        COPY_SCRIPT="$SCRIPT_DIR/copy_6th_hour.sh"
+      fi
       NEW_DATE=$(date -u -d "${DATE} $(printf "%02d" $DAY_HOUR):00:00 1 hour ago" "+%Y%m%d%H")
       ALT_DATE=${NEW_DATE:0:-2}
       FILE_NAME="hrrr.t${NEW_DATE:(-2)}z.wrfsfcf0$(($FC_HOUR + 1)).grib2"
@@ -163,6 +171,11 @@ download_hrrr() {
       >&2 printf "  ** Checking previous hour: hrrr.${ALT_DATE}/${FILE_NAME}"
 
       check_file_existence
+      if [[ $? -eq 0 ]]; then
+        >&2 printf "  surrogate file exists on disk, copying now...\n"
+        "$COPY_SCRIPT" "$FILE_NAME" "$ORIGINAL_FILE"
+        exit 0
+      fi
 
       check_file_in_archive "${ARCHIVE}"
 
@@ -171,6 +184,7 @@ download_hrrr() {
 
         if [[ $? -eq 3 ]]; then
           >&2 printf "  not available in previous hour\n"
+          echo "$ORIGINAL_FILE" >> "../missing_HRRR_files_${DATE}.log"
           exit 0
         fi
       else
@@ -221,6 +235,11 @@ download_hrrr() {
     # Create index file
     wgrib2 -s "${FILE_NAME}" > "${FILE_NAME}.idx"
     printf " created \n"
+  fi
+
+  # If the file was successfully downloaded but with a different name, copy it to the expected name
+  if [[ -n "$ORIGINAL_FILE" ]]; then
+    "$COPY_SCRIPT" "$FILE_NAME" "$ORIGINAL_FILE"
   fi
 }
 export -f download_hrrr
