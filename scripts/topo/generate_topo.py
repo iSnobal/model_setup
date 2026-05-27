@@ -16,13 +16,6 @@ import os
 import sys
 from pathlib import Path
 
-if os.environ.get("CONDA_DEFAULT_ENV") != "basin_setup":
-    sys.exit(
-        "Error: must run inside 'basin_setup' conda env.\n"
-        f"  Active env: {os.environ.get('CONDA_DEFAULT_ENV', '(none)')}\n"
-        "  Run: conda activate basin_setup"
-    )
-
 # Allow sibling scripts to be imported regardless of working directory
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -63,7 +56,7 @@ def main():
     parser.add_argument("--download-dem-tiles", action="store_true",
                         help="Download DEM tiles to disk before warping (use for SLURM/offline)")
     parser.add_argument("--skip-dem-download", action="store_true",
-                        help="Reuse existing tiles in <output-dir>/dem_tiles/ (requires --download-dem-tiles)")
+                        help="Reuse existing tiles in <output-dir>/dem_tiles/ (from previous run w/ --download-dem-tiles)")
     expected = ", ".join(fname for fname, _ in btopo.VEG_DIR_FILES.values())
     parser.add_argument("--veg-dir", default=None, metavar="DIR",
                         help=f"Directory of user-derived vegetation rasters, overrides "
