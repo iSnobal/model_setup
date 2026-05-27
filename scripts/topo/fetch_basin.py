@@ -142,11 +142,31 @@ def main():
         polygon = Path(args.polygon).resolve()
         if not polygon.exists():
             sys.exit(f"Polygon file not found: {polygon}")
+        gdf = gpd.read_file(polygon)
+        if gdf.crs is None:
+            sys.exit(
+                f"Polygon file must have a defined projected CRS: {polygon}"
+            )
+        if not gdf.crs.is_projected:
+            sys.exit(
+                f"Polygon CRS must be projected/UTM, not geographic: {gdf.crs}"
+            )
+        polygon_epsg = gdf.crs.to_epsg()
+        if polygon_epsg is None:
+            sys.exit(
+                f"Polygon CRS must resolve to an EPSG code so it can be validated: {gdf.crs}"
+            )
         gdf_wgs84 = gpd.read_file(polygon).to_crs("EPSG:4326")
         xmin, ymin, xmax, ymax = gdf_wgs84.total_bounds
         lon_center = (xmin + xmax) / 2
         lat_center = (ymin + ymax) / 2
-        utm_epsg = utm_epsg_from_lonlat(lon_center, lat_center)
+        expected_epsg = args.epsg or utm_epsg_from_lonlat(lon_center, lat_center)
+        if polygon_epsg != expected_epsg:
+            sys.exit(
+                "Polygon CRS EPSG does not match the target UTM EPSG "
+                f"(polygon: EPSG:{polygon_epsg}, expected: EPSG:{expected_epsg})"
+            )
+        utm_epsg = expected_epsg
         bbox_wgs84 = (xmin, ymin, xmax, ymax)
         basin_name = polygon.stem
 
