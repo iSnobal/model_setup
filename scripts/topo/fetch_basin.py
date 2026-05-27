@@ -135,6 +135,8 @@ def main():
         print(f"Fetching HUC {args.huc_id} from USGS WBD...")
         polygon, utm_epsg, bbox_wgs84, basin_name = fetch_huc_polygon(
             args.huc_id, output_dir)
+        if args.epsg:
+            utm_epsg = args.epsg
 
     elif args.basin_name:
         print(f"Searching USGS WBD HUC{args.huc_level} for '{args.basin_name}'...")
@@ -152,6 +154,8 @@ def main():
         basin_name = matches["name"].iloc[0]
         print(f"Found: {basin_name} ({huc_id})")
         polygon, utm_epsg, bbox_wgs84, _ = fetch_huc_polygon(huc_id, output_dir)
+        if args.epsg:
+            utm_epsg = args.epsg
 
     else:
         polygon = Path(args.polygon).resolve()
@@ -171,7 +175,7 @@ def main():
             sys.exit(
                 f"Polygon CRS must resolve to an EPSG code so it can be validated: {gdf.crs}"
             )
-        gdf_wgs84 = gpd.read_file(polygon).to_crs("EPSG:4326")
+        gdf_wgs84 = gdf.to_crs("EPSG:4326")
         xmin, ymin, xmax, ymax = gdf_wgs84.total_bounds
         lon_center = (xmin + xmax) / 2
         lat_center = (ymin + ymax) / 2
@@ -184,9 +188,6 @@ def main():
         utm_epsg = expected_epsg
         bbox_wgs84 = (xmin, ymin, xmax, ymax)
         basin_name = polygon.stem
-
-    if args.epsg:
-        utm_epsg = args.epsg
 
     env_path = write_env(output_dir, polygon, utm_epsg, bbox_wgs84, basin_name)
     print(f"Basin file: {polygon}")
