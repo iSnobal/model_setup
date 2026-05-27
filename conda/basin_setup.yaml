@@ -2,17 +2,13 @@ name: basin_setup
 channels:
   - conda-forge
 dependencies:
-  - colorama
-  - coloredlogs
-  - gdal<3.9
+  - python>=3.9
+  - gdal
   - geopandas
   - netcdf4
-  - numpy<1.25
+  - numpy
   - pandas
-  - pip
-  - python=3.11
+  - requests
   - rioxarray
   - xarray
-  - pip:
-      - inicheck
-      - spatialnc
+  - dask
