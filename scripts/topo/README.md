@@ -115,6 +115,8 @@ $ conda activate basin_setup
 $ python fetch_basin.py -n "new fork" -o ./newfork_scripts
 
 # [alternatively] fetch basin boundary by HUC ID
+# HUC IDs must match the target HUC level length (2, 4, 6, 8, 10, or 12 digits)
+# Leading zeros are not automatically added (e.g., HUC 01).
 $ python fetch_basin.py -huc 14040102 -o ./newfork_scripts
 
 # Step 2: mosaic DEM — streams via vsicurl by default (reads basin.env from step 1)
@@ -145,7 +147,7 @@ BASIN_DEM="./newfork_scripts/dem_epsg_32612_100m.tif"
 
 ```
 generate_topo.py flags:
-  -huc HUC_ID            HUC ID (e.g. 14050001)
+  -huc HUC_ID            HUC ID with exact supported length (2, 4, 6, 8, 10, or 12 digits)
   -n NAME                Basin name keyword (e.g. "Yampa")
   -s POLY                Existing UTM polygon file (shapefile or GeoPackage)
   -o DIR                 Output directory (required)
