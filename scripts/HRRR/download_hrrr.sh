@@ -4,7 +4,7 @@
 # Can either be given two arguments for year and month:
 #   ./download_hrrr.sh YYYY MM (Archive)
 # or loop over the dates given as one argument separated by comma.
-# This is the pathway for single day downloads.
+# This is also the pathway for single day (same endpoint) downloads.
 #   ./download_hrrr.sh YYYYMMDD,YYYYMMDD (Archive)
 #
 # The third is optional and can specify the archive source. Default
@@ -34,32 +34,27 @@ export GRIB_THREADS="-ncpu 2"
 export SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export EXIT_ON_SUCCESS="true"
 
-# When adding a new archive, also add the variable to function:
-#  check_alternate_archive
-export UofU_ARCHIVE='UofU'
-export AWS_ARCHIVE='AWS'
-export Google_ARCHIVE='Google'
-export Azure_ARCHIVE='Azure'
+# When adding a new archive, update ARCHIVE_NAMES and add ARCHIVE_URL_{NAME}
+# with the url template. DAY and FILE are substituted in set_archive_url().
+export ARCHIVE_NAMES="UofU AWS Google Azure"
+export DEFAULT_ARCHIVE="Google"
+export ARCHIVE_URL_UofU="https://pando-rgw01.chpc.utah.edu/hrrr/sfc/DAY/FILE"
+export ARCHIVE_URL_AWS="https://noaa-hrrr-bdp-pds.s3.amazonaws.com/hrrr.DAY/conus/FILE"
+export ARCHIVE_URL_Google="https://storage.googleapis.com/high-resolution-rapid-refresh/hrrr.DAY/conus/FILE"
+export ARCHIVE_URL_Azure="https://noaahrrr.blob.core.windows.net/hrrr/hrrr.DAY/conus/FILE"
 
 set_archive_url() {
-  if [[ ! -v ALT_DATE ]]; then
-    local HRRR_DAY=${DATE}
-  else
-    local HRRR_DAY=${ALT_DATE}
+  # Rely on ARCHIVE_NAME to identify correct URL template var
+  local day="${ALT_DATE:-$DATE}"
+  local var="ARCHIVE_URL_$1"
+  local template="${!var}"
+  if [[ -z "$template" ]]; then
+    >&2 printf "Unknown archive: %s\n" "$1"
+    return 1
   fi
-
-  if [[ "$1" == "${UofU_ARCHIVE}" ]]; then
-      export ARCHIVE_URL="https://pando-rgw01.chpc.utah.edu/hrrr/sfc/${HRRR_DAY}/${FILE_NAME}"
-  elif [[ "$1" == "${AWS_ARCHIVE}" ]]; then
-      export ARCHIVE_URL="https://noaa-hrrr-bdp-pds.s3.amazonaws.com/hrrr.${HRRR_DAY}/conus/${FILE_NAME}"
-  elif [[ "$1" == "${Google_ARCHIVE}" ]]; then
-      export ARCHIVE_URL="https://storage.googleapis.com/high-resolution-rapid-refresh/hrrr.${HRRR_DAY}/conus/${FILE_NAME}"
-  elif [[ "$1" == "${Azure_ARCHIVE}" ]]; then
-      export ARCHIVE_URL="https://noaahrrr.blob.core.windows.net/hrrr/hrrr.${HRRR_DAY}/conus/${FILE_NAME}"
-  else
-      >&2 printf "Unknown archive: %s\n" "$1"
-      return 1
-  fi
+  # Substitute DAY and FILE with actual values to get correct URL
+  export ARCHIVE_URL="${template/DAY/$day}"
+  ARCHIVE_URL="${ARCHIVE_URL/FILE/$FILE_NAME}"
 }
 export -f set_archive_url
 
@@ -79,16 +74,17 @@ check_file_in_archive() {
 export -f check_file_in_archive
 
 check_alternate_archive() {
-    # If user inputs archive, update ARCHIVES to user input
-    if [[ $1 == @($UofU_ARCHIVE|$AWS_ARCHIVE|$Google_ARCHIVE|$Azure_ARCHIVE) ]]; then
-      ARCHIVES=("$1")
+    local var="ARCHIVE_URL_$1"
+    local archives
+    if [[ -n "${!var}" ]]; then
+      archives=("$1")
       >&2 printf "  Input detected: %s\n" "$1"
     else
-      ARCHIVES=("$UofU_ARCHIVE" "$AWS_ARCHIVE" "$Google_ARCHIVE" "$Azure_ARCHIVE")
+      read -ra archives <<< "$ARCHIVE_NAMES"
     fi
 
     >&2 printf "  Checking alternate archive: \n"
-    for ALT_ARCHIVE in "${ARCHIVES[@]}"; do
+    for ALT_ARCHIVE in "${archives[@]}"; do
       if [[ "${ALT_ARCHIVE}" == "${ARCHIVE}" ]]; then
         continue
       fi
@@ -214,7 +210,7 @@ download_hrrr() {
 
     # Loop through archives until file is no longer zero size
     # or all archives have been checked.
-    for ALT_ARCHIVE in "$UofU_ARCHIVE" "$AWS_ARCHIVE" "$Google_ARCHIVE" "$Azure_ARCHIVE"; do
+    for ALT_ARCHIVE in $ARCHIVE_NAMES; do
       check_file_in_archive "$ALT_ARCHIVE"
       if [[ $? -eq 0 ]]; then
         get_grib_range
@@ -246,8 +242,9 @@ download_hrrr() {
 export -f download_hrrr
 
 # ── Main ──────────────────────────────────────────────────────────────────────
-# Parse the given user inputs
-if [[ -n "$2" ]] && [[ "$2" != @($UofU_ARCHIVE|$AWS_ARCHIVE|$Google_ARCHIVE|$Azure_ARCHIVE) ]]; then
+# Parse the given user inputs for dates, ensure it does not match archive names
+# Note: spacing is intentional to prevent partial matches
+if [[ -n "$2" ]] && [[ " $ARCHIVE_NAMES " != *" $2 "* ]]; then
   YEAR=$1
   MONTH=$(printf "%02d" "$((10#${2}))")
   LAST_DAY=$(date -d "${MONTH}/01/${YEAR} + 1 month - 1 day" +%d)
@@ -275,16 +272,15 @@ else
   exit 1
 fi
 
-# Set the archive (check $2 for YYYY MM mode, $3 for date-range mode)
-if [[ "$2" == "${UofU_ARCHIVE}" ]] || [[ "$3" == "${UofU_ARCHIVE}" ]]; then
-  export ARCHIVE=${UofU_ARCHIVE}
-elif [[ "$2" == "${AWS_ARCHIVE}" ]] || [[ "$3" == "${AWS_ARCHIVE}" ]]; then
-  export ARCHIVE=${AWS_ARCHIVE}
-elif [[ "$2" == "${Azure_ARCHIVE}" ]] || [[ "$3" == "${Azure_ARCHIVE}" ]]; then
-  export ARCHIVE=${Azure_ARCHIVE}
+# Set the archive ($3 for YYYY MM mode, $2 for date-range mode)
+ARCHIVE_ARG="${3:-$2}"
+# Note: spacing is intentional here as well
+if [[ " $ARCHIVE_NAMES " == *" $ARCHIVE_ARG "* ]]; then
+  export ARCHIVE="$ARCHIVE_ARG"
 else
-  export ARCHIVE=${Google_ARCHIVE}
+  export ARCHIVE="$DEFAULT_ARCHIVE"
 fi
+unset ARCHIVE_ARG
 
 printf "Getting files from: ${ARCHIVE}\n"
 
