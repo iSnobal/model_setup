@@ -22,6 +22,7 @@ import requests
 WBD_BASE = "https://hydro.nationalmap.gov/arcgis/rest/services/wbd/MapServer"
 _WBD_LAYER = {2: 1, 4: 2, 6: 3, 8: 4, 10: 5, 12: 6}
 WBD_FIELD = {2: "huc2", 4: "huc4", 6: "huc6", 8: "huc8", 10: "huc10", 12: "huc12"}
+SUPPORTED_HUC_LEVELS = tuple(sorted(_WBD_LAYER))
 
 
 def _wbd_query(layer, where, out_fields):
@@ -45,11 +46,25 @@ def utm_epsg_from_lonlat(lon, lat):
     return 32600 + zone if lat >= 0 else 32700 + zone
 
 
-def fetch_huc_polygon(huc_id, output_dir):
-    """Query WBD for a HUC boundary, reproject to UTM, and save as GeoPackage."""
+def validate_huc_id(huc_id):
+    """Validate that the input HUC ID is supported."""
+    huc_id = str(huc_id).strip()
+    if not huc_id.isdigit():
+        raise ValueError(f"HUC ID must contain only digits, got '{huc_id}'")
+
     huc_level = len(huc_id)
     if huc_level not in _WBD_LAYER:
-        raise ValueError(f"HUC ID length {huc_level} not supported. Use HUC2/4/6/8/10/12.")
+        levels = ", ".join(str(level) for level in SUPPORTED_HUC_LEVELS)
+        raise ValueError(
+            f"HUC ID '{huc_id}' must be exactly one of these lengths: {levels} digits. "
+            f"Got {huc_level} digits."
+        )
+    return huc_id, huc_level
+
+
+def fetch_huc_polygon(huc_id, output_dir):
+    """Query WBD for a HUC boundary, reproject to UTM, and save as GeoPackage."""
+    huc_id, huc_level = validate_huc_id(huc_id)
     field = WBD_FIELD[huc_level]
     gdf = _wbd_query(_WBD_LAYER[huc_level], f"{field}='{huc_id}'", "*")
     if gdf.empty:
@@ -99,8 +114,8 @@ def main():
         epilog=__doc__,
     )
     src = parser.add_mutually_exclusive_group(required=True)
-    src.add_argument("-huc", "--huc-id", metavar="HUC_ID",
-                     help="HUC ID (e.g. 14050001)")
+    src.add_argument("-huc", "--huc-id", type=str, metavar="HUC_ID",
+                     help="HUC ID with exact supported length (2, 4, 6, 8, 10, or 12 digits; e.g. 14050001)")
     src.add_argument("-n", "--basin-name", metavar="NAME",
                      help="Basin name keyword to search (e.g. 'Yampa')")
     src.add_argument("-s", "--polygon", metavar="POLY",
