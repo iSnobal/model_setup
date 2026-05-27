@@ -17,7 +17,7 @@ CREATED_HOUR=6
 
 # Grab non-precip fields
 wgrib2 ${SOURCE_FILE} \
-  -match ${HRRR_VARIABLES} \
+  -match "${HRRR_VARIABLES}" \
   -set_date +1hr \
   -set_ftime "${CREATED_HOUR} hour fcst" \
   -grib_out ${CREATED_FILE}_1
@@ -38,9 +38,13 @@ rm ${CREATED_FILE}_{1,2}
 echo " ** Result **"
 wgrib2 -v2 ${CREATED_FILE}
 
+echo " ** Creating index file for ${CREATED_FILE} **"
+# Create index file for created file
+wgrib2 -s ${CREATED_FILE} > ${CREATED_FILE}.idx
+
 # Clean up missing file
 find . -type f -name "${CREATED_FILE}.missing" -size 0 -delete
 
-# Remove SOURCE_FILE
-rm ${SOURCE_FILE}
+# Remove SOURCE_FILE and its index file
+rm ${SOURCE_FILE} ${SOURCE_FILE}.idx
 
