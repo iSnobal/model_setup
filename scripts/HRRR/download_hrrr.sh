@@ -8,7 +8,7 @@
 #
 # The third is optional and can specify the archive source. Default
 # is to get from Google and can be changed to the University of Utah by
-# by passing 'UofU' or Amazon with 'AWS'.
+# by passing 'UofU', Amazon with 'AWS', or Microsoft with 'Azure'.
 
 # Colorado Basin River bounding box from:
 # https://www.sciencebase.gov/catalog/item/4f4e4a38e4b07f02db61cebb
@@ -226,7 +226,7 @@ export -f download_hrrr
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 # Parse the given user inputs
-if [[ -n "$2" ]] && [[ "$2" != @($UofU_ARCHIVE|$AWS_ARCHIVE|$Google_ARCHIVE) ]]; then
+if [[ -n "$2" ]] && [[ "$2" != @($UofU_ARCHIVE|$AWS_ARCHIVE|$Google_ARCHIVE|$Azure_ARCHIVE) ]]; then
   YEAR=$1
   MONTH=$(printf "%02d" "$((10#${2}))")
   LAST_DAY=$(date -d "${MONTH}/01/${YEAR} + 1 month - 1 day" +%d)
@@ -242,6 +242,8 @@ if [[ "$2" == "${UofU_ARCHIVE}" ]] || [[ "$3" == "${UofU_ARCHIVE}" ]]; then
   export ARCHIVE=${UofU_ARCHIVE}
 elif [[ "$2" == "${AWS_ARCHIVE}" ]] || [[ "$3" == "${AWS_ARCHIVE}" ]]; then
   export ARCHIVE=${AWS_ARCHIVE}
+elif [[ "$2" == "${Azure_ARCHIVE}" ]] || [[ "$3" == "${Azure_ARCHIVE}" ]]; then
+  export ARCHIVE=${Azure_ARCHIVE}
 else
   export ARCHIVE=${Google_ARCHIVE}
 fi
