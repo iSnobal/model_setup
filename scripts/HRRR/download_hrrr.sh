@@ -18,9 +18,9 @@
 #
 set -e
 
-export HRRR_VARS='TMP:2 m|RH:2 m|DPT: 2 m|UGRD:10 m|VGRD:10 m|TCDC:|APCP:surface|DSWRF:surface|DLWRF:surface|VBDSF:surface|VDDSF:surface|HGT:surface'
+export HRRR_VARS='TMP:2 m|RH:2 m|DPT:2 m|UGRD:10 m|VGRD:10 m|TCDC:|APCP:surface|DSWRF:surface|DLWRF:surface|VBDSF:surface|VDDSF:surface|HGT:surface'
 export HRRR_FC_HOURS=(1 6)
-export HRRR_DAY_HOURS=$(seq 0 23)
+export HRRR_DAY_HOURS=({0..23})
 
 # Western United States from Denver West
 export GRIB_AREA="-122.00:-105.00 32.00:49.00"
@@ -46,21 +46,24 @@ set_archive_url() {
     local HRRR_DAY=${ALT_DATE}
   fi
 
-  if [ $1 == ${UofU_ARCHIVE} ]; then
+  if [[ "$1" == "${UofU_ARCHIVE}" ]]; then
       export ARCHIVE_URL="https://pando-rgw01.chpc.utah.edu/hrrr/sfc/${HRRR_DAY}/${FILE_NAME}"
-  elif [ $1 == ${AWS_ARCHIVE} ]; then
+  elif [[ "$1" == "${AWS_ARCHIVE}" ]]; then
       export ARCHIVE_URL="https://noaa-hrrr-bdp-pds.s3.amazonaws.com/hrrr.${HRRR_DAY}/conus/${FILE_NAME}"
-  elif [ $1 == ${Google_ARCHIVE} ]; then
+  elif [[ "$1" == "${Google_ARCHIVE}" ]]; then
       export ARCHIVE_URL="https://storage.googleapis.com/high-resolution-rapid-refresh/hrrr.${HRRR_DAY}/conus/${FILE_NAME}"
-  elif [ $1 == ${Azure_ARCHIVE} ]; then
+  elif [[ "$1" == "${Azure_ARCHIVE}" ]]; then
       export ARCHIVE_URL="https://noaahrrr.blob.core.windows.net/hrrr/hrrr.${HRRR_DAY}/conus/${FILE_NAME}"
+  else
+      >&2 printf "Unknown archive: %s\n" "$1"
+      return 1
   fi
 }
 export -f set_archive_url
 
 check_file_in_archive() {
-  set_archive_url $1
-  STATUS_CODE=$(curl -s -o /dev/null -I -w "%{http_code}" ${ARCHIVE_URL})
+  set_archive_url "$1"
+  STATUS_CODE=$(curl -s -o /dev/null -I -w "%{http_code}" "${ARCHIVE_URL}")
 
   if [ "${STATUS_CODE}" == "404" ]; then
     >&2 printf "   missing\n"
@@ -76,10 +79,10 @@ export -f check_file_in_archive
 check_alternate_archive() {
     # If user inputs archive, update ARCHIVES to user input
     if [[ $1 == @($UofU_ARCHIVE|$AWS_ARCHIVE|$Google_ARCHIVE|$Azure_ARCHIVE) ]]; then
-      ARCHIVES=($1)
-     >&2 printf "  Input detected: $1"
+      ARCHIVES=("$1")
+      >&2 printf "  Input detected: %s\n" "$1"
     else
-      ARCHIVES=($UofU_ARCHIVE $AWS_ARCHIVE $Google_ARCHIVE $Azure_ARCHIVE)
+      ARCHIVES=("$UofU_ARCHIVE" "$AWS_ARCHIVE" "$Google_ARCHIVE" "$Azure_ARCHIVE")
     fi
 
     >&2 printf "  Checking alternate archive: \n"
@@ -88,8 +91,8 @@ check_alternate_archive() {
         continue
       fi
 
-      >&2 printf "   - ${ALT_ARCHIVE}"
-      check_file_in_archive ${ALT_ARCHIVE}
+      >&2 printf "   - %s" "${ALT_ARCHIVE}"
+      check_file_in_archive "${ALT_ARCHIVE}"
       if [ $? -eq 0 ]; then
         return 0
       fi
@@ -102,10 +105,12 @@ check_alternate_archive() {
 export -f check_alternate_archive
 
 check_file_existence(){
-  # Check for existing file on disk and that it is not zero in size
+  # Check for existing nonzero file on disk
+  # Pass EXIT_ON_SUCCESS to exit the job when found.
+  # return 3 on failure and signal alt pathway
   if [[ -s "${FILE_NAME}" ]]; then
     if [[ "${1}" == "${EXIT_ON_SUCCESS}" ]]; then
-      >&1 printf "  exists \n"
+      printf "  exists \n"
       exit 0
     fi
     return 0
@@ -115,10 +120,8 @@ check_file_existence(){
 export -f check_file_existence
 
 get_grib_range(){
-  INDEX_FILE="${1}.idx"
-  RANGE_GREP="grep -A 1 -B 1 "
-
   INDEX_FILE=$(curl -s "${ARCHIVE_URL}.idx")
+  RANGE_GREP="grep -A 1 -B 1 "
 
   export MIN_RANGE=$(echo "${INDEX_FILE}" | ${RANGE_GREP} -E "${HRRR_VARS}" | cut -d ":" -f 2 | head -n 1)
   export MAX_RANGE=$(echo "${INDEX_FILE}" | ${RANGE_GREP} -E "${HRRR_VARS}" | cut -d ":" -f 2 | tail -n 1)
@@ -135,13 +138,13 @@ download_hrrr() {
   # Clean up any old temporary pipes from previous runs
   find . -type p -name "${FILE_NAME}_tmp" -delete
   # Remove any previous downloads of empty grib files
-  find . -type f -name ${FILE_NAME} -size 0 -delete
+  find . -type f -name "${FILE_NAME}" -size 0 -delete
   # Remove any previously missing files in archives and try again
   find . -type f -name "${FILE_NAME}.missing" -size 0 -delete
- 
+
   check_file_existence ${EXIT_ON_SUCCESS}
 
-  check_file_in_archive ${ARCHIVE}
+  check_file_in_archive "${ARCHIVE}"
 
   if [[ $? -eq 3 ]]; then
     check_alternate_archive
@@ -150,7 +153,7 @@ download_hrrr() {
   if [[ $? -eq 3 ]]; then
     >&2 printf "  ** Forecast hour ${FC_HOUR} not available **\n"
 
-    # Try a previous hour of the day when getting either the F01 or F06 forecast
+    # Try a previous hour of the day if either F01 or F06 is missing
     if [[ ${FC_HOUR} -eq 1 ]] || [[ ${FC_HOUR} -eq 6 ]]; then
       NEW_DATE=$(date -u -d "${DATE} $(printf "%02d" $DAY_HOUR):00:00 1 hour ago" "+%Y%m%d%H")
       ALT_DATE=${NEW_DATE:0:-2}
@@ -160,7 +163,7 @@ download_hrrr() {
 
       check_file_existence
 
-      check_file_in_archive ${ARCHIVE}
+      check_file_in_archive "${ARCHIVE}"
 
       if [[ $? -eq 3 ]]; then
         check_alternate_archive
@@ -178,59 +181,55 @@ download_hrrr() {
   fi
 
   TMP_FILE="${FILE_NAME}_tmp"
-  mkfifo $TMP_FILE
+  mkfifo "$TMP_FILE"
 
   # Reduce download size of GRIB file by requesting a specific range
-  get_grib_range ${FILE_NAME}
+  get_grib_range
 
   printf '\n'
-  curl -s --range ${MIN_RANGE}-${MAX_RANGE} ${ARCHIVE_URL} -o $TMP_FILE | \
-  wgrib2 $TMP_FILE -v0 ${GRIB_THREADS} -set_grib_type same -small_grib ${GRIB_AREA} - | \
-  wgrib2 - -v0 ${GRIB_THREADS} -match "${HRRR_VARS}" -grib $FILE_NAME >&1
-  rm $TMP_FILE
+  curl -s --range "${MIN_RANGE}-${MAX_RANGE}" "${ARCHIVE_URL}" -o "$TMP_FILE" | \
+  wgrib2 "$TMP_FILE" -v0 ${GRIB_THREADS} -set_grib_type same -small_grib ${GRIB_AREA} - | \
+  wgrib2 - -v0 ${GRIB_THREADS} -match "${HRRR_VARS}" -grib "$FILE_NAME"
 
-  # Check if the file was downloaded successfully and is not zero size
-  check_file_existence
+  rm "$TMP_FILE"
 
-  # Handle zero size file
-  if [[ $? -eq 3 ]]; then
-    >&2 printf "File is zero size, checking alternate archives...\n"
+  # If download produced zero size file, retry with alternate archives
+  if [[ ! -s "$FILE_NAME" ]]; then
+    >&2 printf "  File is zero size, checking alternate archives...\n"
 
-    # Check alternate archives until downloaded file is no longer zero size
+    # Loop through archives until file is no longer zero size
     # or all archives have been checked.
-    ARCHIVES=($UofU_ARCHIVE $AWS_ARCHIVE $Google_ARCHIVE $Azure_ARCHIVE)
-    for ALT_ARCHIVE in "${ARCHIVES[@]}"; do
-      check_alternate_archive $ALT_ARCHIVE
-      mkfifo $TMP_FILE
+    for ALT_ARCHIVE in "$UofU_ARCHIVE" "$AWS_ARCHIVE" "$Google_ARCHIVE" "$Azure_ARCHIVE"; do
+      check_file_in_archive "$ALT_ARCHIVE"
       if [[ $? -eq 0 ]]; then
-        curl -s --range ${MIN_RANGE}-${MAX_RANGE} ${ARCHIVE_URL} -o $TMP_FILE | \
-        wgrib2 $TMP_FILE -v0 ${GRIB_THREADS} -set_grib_type same -small_grib ${GRIB_AREA} - | \
-        wgrib2 - -v0 ${GRIB_THREADS} -match "${HRRR_VARS}" -grib $FILE_NAME >&1
+        mkfifo "$TMP_FILE"
+        curl -s --range "${MIN_RANGE}-${MAX_RANGE}" "${ARCHIVE_URL}" -o "$TMP_FILE" | \
+        wgrib2 "$TMP_FILE" -v0 ${GRIB_THREADS} -set_grib_type same -small_grib ${GRIB_AREA} - | \
+        wgrib2 - -v0 ${GRIB_THREADS} -match "${HRRR_VARS}" -grib "$FILE_NAME" >&1
         find . -type f -name "${FILE_NAME}.missing" -size 0 -delete
-        rm $TMP_FILE
-        check_file_existence
-
-        if [[ $? -eq 3 ]] ; then
-            printf "  File is still zero size\n"
-        fi
+        rm "$TMP_FILE"
+        # break loop once file successfully downloaded and nonzero
+        [[ -s "$FILE_NAME" ]] && break
+        # Otherwise keep going
+        >&2 printf "  Still zero size from %s\n" "$ALT_ARCHIVE"
       fi
     done
   fi
 
-  if [ $? -eq 0 ]; then
+  if [[ -s "$FILE_NAME" ]]; then
     # Create index file
-    wgrib2 -s ${FILE_NAME} > ${FILE_NAME}.idx
-  
-    >&1 printf " created \n"
+    wgrib2 -s "${FILE_NAME}" > "${FILE_NAME}.idx"
+    printf " created \n"
   fi
 }
 export -f download_hrrr
 
+# ── Main ──────────────────────────────────────────────────────────────────────
 # Parse the given user inputs
-if [[ ! -z $2 ]] && [[ $2 != @($UofU_ARCHIVE|$AWS_ARCHIVE|$Google_ARCHIVE) ]]; then
-  export YEAR=$1
-  export MONTH=$(printf "%02d" "$((10#${2}))")
-  export LAST_DAY=$(date -d "${MONTH}/01/${YEAR} + 1 month - 1 day" +%d)
+if [[ -n "$2" ]] && [[ "$2" != @($UofU_ARCHIVE|$AWS_ARCHIVE|$Google_ARCHIVE) ]]; then
+  YEAR=$1
+  MONTH=$(printf "%02d" "$((10#${2}))")
+  LAST_DAY=$(date -d "${MONTH}/01/${YEAR} + 1 month - 1 day" +%d)
 
   export DATES=($(seq -f "${YEAR}${MONTH}%02g" 1 $LAST_DAY))
 else
@@ -255,10 +254,10 @@ for DATE in "${DATES[@]}"; do
   export DATE=${DATE}
 
   FOLDER="hrrr.${DATE}"
-  mkdir -p $FOLDER
-  pushd $FOLDER > /dev/null
+  mkdir -p "$FOLDER"
+  pushd "$FOLDER" > /dev/null
 
-  parallel --tag --line-buffer --jobs ${PARALLEL_JOBS} download_hrrr ::: ${HRRR_DAY_HOURS} ::: "${HRRR_FC_HOURS[@]}"
+  parallel --tag --line-buffer --jobs ${PARALLEL_JOBS} download_hrrr ::: "${HRRR_DAY_HOURS[@]}" ::: "${HRRR_FC_HOURS[@]}"
 
   popd > /dev/null
 done
