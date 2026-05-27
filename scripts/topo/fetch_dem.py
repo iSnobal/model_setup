@@ -60,7 +60,8 @@ def _query_tile_urls(bbox_wgs84):
     # Title format: "USGS 1/3 Arc Second n40w107 20210312" → cell is second-to-last word
     best = {}
     for item in items:
-        tile = item.get("title", "").split()[-2]
+        parts = item.get("title", "").split()
+        tile = parts[-2] if len(parts) >= 2 else item.get("downloadURL", item.get("title", ""))
         pub_date = item.get("publicationDate", "")
         is_newer = tile in best and pub_date > best[tile].get("publicationDate", "")
         if tile not in best or is_newer:
