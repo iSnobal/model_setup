@@ -4,6 +4,7 @@
 # Can either be given two arguments for year and month:
 #   ./download_hrrr.sh YYYY MM (Archive)
 # or loop over the dates given as one argument separated by comma.
+# This is the pathway for single day downloads.
 #   ./download_hrrr.sh YYYYMMDD,YYYYMMDD (Archive)
 #
 # The third is optional and can specify the archive source. Default
@@ -232,12 +233,29 @@ if [[ -n "$2" ]] && [[ "$2" != @($UofU_ARCHIVE|$AWS_ARCHIVE|$Google_ARCHIVE|$Azu
   LAST_DAY=$(date -d "${MONTH}/01/${YEAR} + 1 month - 1 day" +%d)
 
   export DATES=($(seq -f "${YEAR}${MONTH}%02g" 1 $LAST_DAY))
+elif [[ $1 =~ ^([0-9]{8}),([0-9]{8})$ ]]; then
+  # Regex pattern to match YYYYMMDD,YYYYMMDD
+  START_DATE="${BASH_REMATCH[1]}"
+  END_DATE="${BASH_REMATCH[2]}"
+
+  if [[ "$START_DATE" -gt "$END_DATE" ]]; then
+    echo "Invalid range: start date must be <= end date"
+    exit 1
+  fi
+
+  DATES=()
+  CURRENT_DATE="$START_DATE"
+  while [[ "$CURRENT_DATE" -le "$END_DATE" ]]; do
+    DATES+=("$CURRENT_DATE")
+    CURRENT_DATE=$(date -d "${CURRENT_DATE:0:4}-${CURRENT_DATE:4:2}-${CURRENT_DATE:6:2} + 1 day" +%Y%m%d)
+  done
+  export DATES
 else
-  IFS=','
-  export DATES=($1)
+  echo "Invalid input. Use either: YYYY MM [Archive] OR YYYYMMDD,YYYYMMDD [Archive]"
+  exit 1
 fi
 
-# Set the archive
+# Set the archive (check $2 for YYYY MM mode, $3 for date-range mode)
 if [[ "$2" == "${UofU_ARCHIVE}" ]] || [[ "$3" == "${UofU_ARCHIVE}" ]]; then
   export ARCHIVE=${UofU_ARCHIVE}
 elif [[ "$2" == "${AWS_ARCHIVE}" ]] || [[ "$3" == "${AWS_ARCHIVE}" ]]; then
