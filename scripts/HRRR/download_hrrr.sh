@@ -108,7 +108,7 @@ check_file_existence(){
   # return 3 on failure and signal alt pathway
   if [[ -s "${FILE_NAME}" ]]; then
     # If data is missing vars we remove it from disk
-    if ! check_file_is_valid "${FILE_NAME}"; then
+    if ! check_file_is_valid_and_index "${FILE_NAME}"; then
       rm -f "${FILE_NAME}"
       return 3
     fi
@@ -122,20 +122,38 @@ check_file_existence(){
 }
 export -f check_file_existence
 
-check_file_is_valid() {
+
+check_file_is_valid_and_index() {
+  # Checks file has all required HRRR Variables
+  # If this check passes, we write the index file
   local file=$1
   local metadata
   local var
-  metadata=$(wgrib2 "${file}" -s 2>/dev/null | cut -d: -f4,5)
+  local file_idx_data
+
+  # Check to make sure index exists, if not create it
+  if [[ -f "${file}.idx" ]]; then
+    metadata=$(cut -d: -f4,5 "${file}.idx")
+  else
+    file_idx_data=$(wgrib2 "${file}" -s 2>/dev/null)
+    metadata=$(echo "${file_idx_data}" | cut -d: -f4,5)
+  fi
+
+  # Look through to ensure hrrr vars are present
   IFS='|' read -ra vars <<< "${HRRR_VARS}"
   for var in "${vars[@]}"; do
     if ! echo "${metadata}" | grep -E -q "^${var}(:| )?"; then
       return 1
     fi
   done
+
+  # Write index if it does not exist yet
+  if [[ -n "${file_idx_data}" ]]; then
+    echo "${file_idx_data}" > "${file}.idx"
+  fi
   return 0
 }
-export -f check_file_is_valid
+export -f check_file_is_valid_and_index
 
 get_grib_range(){
   INDEX_FILE=$(curl -s "${ARCHIVE_URL}.idx")
@@ -224,9 +242,10 @@ download_hrrr() {
 
   rm "$TMP_FILE"
 
-  # If download produced zero size file, retry with alternate archives
-  if [[ ! -s "$FILE_NAME" ]]; then
-    >&2 printf "  File is zero size, checking alternate archives...\n"
+  # If download produced zero size file (or missing vars), retry with alternate archives
+  check_file_existence
+  if [[ $? -eq 3 ]]; then
+    >&2 printf "  File is zero size or has missing variables, checking alternate archives...\n"
 
     # Loop through archives until file is no longer zero size
     # or all archives have been checked.
@@ -240,22 +259,23 @@ download_hrrr() {
         wgrib2 - -v0 ${GRIB_THREADS} -match "${HRRR_VARS}" -grib "$FILE_NAME" >&1
         find . -type f -name "${FILE_NAME}.missing" -size 0 -delete
         rm "$TMP_FILE"
-        # break loop once file successfully downloaded and nonzero
-        [[ -s "$FILE_NAME" ]] && break
+        # Break loop once file successfully downloaded and has valid data
+        check_file_existence
+        if [[ $? -eq 0 ]]; then
+          break
+        fi
         # Otherwise keep going
         >&2 printf "  Still zero size from %s\n" "$ALT_ARCHIVE"
       fi
     done
   fi
 
-  if [[ -s "$FILE_NAME" ]]; then
-    # Create index file
-    wgrib2 -s "${FILE_NAME}" > "${FILE_NAME}.idx"
+  if [[ -f "${FILE_NAME}.idx" ]]; then
     printf " created \n"
   fi
 
   # If the previous hour forecast successfully downloaded, replace missing file with it
-  if [[ -n "$MISSING_FILE" ]] && [[ -s "$FILE_NAME" ]]; then
+  if [[ -n "$MISSING_FILE" ]] && [[ -f "${FILE_NAME}.idx" ]]; then
     "$COPY_SCRIPT" "$FILE_NAME" "$MISSING_FILE"
   fi
 }
