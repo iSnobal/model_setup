@@ -104,6 +104,11 @@ export -f check_alternate_archive
 check_file_existence(){
   # Check for existing file on disk and that it is not zero in size
   if [[ -s "${FILE_NAME}" ]]; then
+    # If data is missing vars we remove it from disk
+    if ! check_file_is_valid "${FILE_NAME}"; then
+      rm -f "${FILE_NAME}"
+      return 3
+    fi
     if [[ "${1}" == "${LOG_OUTPUT}" ]]; then
       >&1 printf "  exists \n"
     fi
@@ -112,6 +117,21 @@ check_file_existence(){
   return 3
 }
 export -f check_file_existence
+
+check_file_is_valid() {
+  local file=$1
+  local metadata
+  local var
+  metadata=$(wgrib2 "${file}" -s 2>/dev/null | cut -d: -f4,5)
+  IFS='|' read -ra vars <<< "${HRRR_VARS}"
+  for var in "${vars[@]}"; do
+    if ! echo "${metadata}" | grep -E -q "^${var}(:| )?"; then
+      return 1
+    fi
+  done
+  return 0
+}
+export -f check_file_is_valid
 
 get_grib_range(){
   INDEX_FILE="${1}.idx"
