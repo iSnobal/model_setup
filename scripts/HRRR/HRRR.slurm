@@ -28,7 +28,8 @@ for NEXT in {0..10}; do
 
   >&1 echo "Processing: ${CURRENT_YEAR}${CURRENT_MONTH}"
 
-  ${HOME}/isnoda/scripts/HRRR/download_hrrr.sh ${CURRENT_YEAR} ${CURRENT_MONTH}
+  # Update the below path to point to this script location
+  ${HOME}/model-setup/scripts/HRRR/download_hrrr.sh ${CURRENT_YEAR} ${CURRENT_MONTH}
 
   if [ $? -ne 0 ]; then
     >&2 echo "ERROR processing ${CURRENT_YEAR}${CURRENT_MONTH}"

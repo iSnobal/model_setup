@@ -25,9 +25,13 @@ wgrib2 ${SOURCE_FILE} \
 echo " ** Result **"
 wgrib2 -v2 ${CREATED_FILE}
 
+echo " ** Creating index file for ${CREATED_FILE} **"
+# Create index file for created file
+wgrib2 -s ${CREATED_FILE} > ${CREATED_FILE}.idx
+
 # Clean up missing file
 find . -type f -name "${CREATED_FILE}.missing" -size 0 -delete
 
-# Remove SOURCE_FILE
-rm ${SOURCE_FILE}
+# Remove SOURCE_FILE and its index file
+rm ${SOURCE_FILE} ${SOURCE_FILE}.idx
 
