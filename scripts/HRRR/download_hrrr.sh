@@ -220,9 +220,12 @@ download_hrrr() {
   if [[ ! -s "$FILE_NAME" ]]; then
     >&2 printf "  File is zero size, checking alternate archives...\n"
 
-    # Loop through archives until file is no longer zero size
+    # Loop through alternate archives until file is no longer zero size
     # or all archives have been checked.
     for ALT_ARCHIVE in $ARCHIVE_NAMES; do
+      if [[ "${ALT_ARCHIVE}" == "${ARCHIVE}" ]]; then
+        continue
+      fi
       check_file_in_archive "$ALT_ARCHIVE"
       if [[ $? -eq 0 ]]; then
         get_grib_range
