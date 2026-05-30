@@ -3,9 +3,10 @@
 #
 # Can either be given two arguments for year and month:
 #   ./download_hrrr.sh YYYY MM (Archive)
-# or loop over the dates given as one argument separated by comma.
-# This is also the pathway for single day (same endpoint) downloads.
+# a range of dates to loop through given as one comma-separated argument:
 #   ./download_hrrr.sh YYYYMMDD,YYYYMMDD (Archive)
+# or a single date:
+#   ./download_hrrr.sh YYYYMMDD (Archive)
 #
 # The third is optional and can specify the archive source. Default
 # is to get from Google and can be changed to the University of Utah
@@ -242,9 +243,9 @@ download_hrrr() {
 export -f download_hrrr
 
 # ── Main ──────────────────────────────────────────────────────────────────────
-# Parse the given user inputs for dates, ensure it does not match archive names
-# Note: spacing is intentional to prevent partial matches
-if [[ -n "$2" ]] && [[ " $ARCHIVE_NAMES " != *" $2 "* ]]; then
+# Parse the given user inputs for dates
+if [[ $1 =~ ^[0-9]{4}$ ]] && [[ $2 =~ ^[0-9]{1,2}$ ]]; then
+  # Regex pattern to match YYYY MM
   YEAR=$1
   MONTH=$(printf "%02d" "$((10#${2}))")
   LAST_DAY=$(date -d "${MONTH}/01/${YEAR} + 1 month - 1 day" +%d)
@@ -267,14 +268,17 @@ elif [[ $1 =~ ^([0-9]{8}),([0-9]{8})$ ]]; then
     CURRENT_DATE=$(date -d "${CURRENT_DATE:0:4}-${CURRENT_DATE:4:2}-${CURRENT_DATE:6:2} + 1 day" +%Y%m%d)
   done
   export DATES
+elif [[ $1 =~ ^[0-9]{8}$ ]]; then
+  # Regex pattern to match single YYYYMMDD
+  export DATES=("$1")
 else
-  echo "Invalid input. Use either: YYYY MM [Archive] OR YYYYMMDD,YYYYMMDD [Archive]"
+  echo "Invalid input. Use either: YYYY MM [Archive] OR YYYYMMDD,YYYYMMDD [Archive] OR YYYYMMDD [Archive]""
   exit 1
 fi
 
-# Set the archive ($3 for YYYY MM mode, $2 for date-range mode)
+# Set the archive ($3 for YYYY MM mode, $2 for date-range or single date mode)
 ARCHIVE_ARG="${3:-$2}"
-# Note: spacing is intentional here as well
+# Note: spacing is intentional here
 if [[ " $ARCHIVE_NAMES " == *" $ARCHIVE_ARG "* ]]; then
   export ARCHIVE="$ARCHIVE_ARG"
 else
