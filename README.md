@@ -5,6 +5,11 @@ a conda environment.
 ## Model releases
 See the [NEWS](NEWS.md) for the latest and history of model releases.
 
+### DOI
+Each model release will have a corresponding release of this repository to match
+the setup used to run the model. Please lookup the latest DOI here: 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20451675.svg)](https://doi.org/10.5281/zenodo.20451675)
+
 ## Folder structure
 
 ### Conda
