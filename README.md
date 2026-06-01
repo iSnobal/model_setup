@@ -35,3 +35,7 @@ Collection of Jupyter notebooks that aid in model setup.
 
 Helper scripts to download or prepare data and execute the model components.  
 This includes example SLURM scripts for High Performance Compute (HPC) environments.
+
+### Topo
+Scripts assisting in updating the domain metadata (`topo.nc` file) to different
+versions of Landfire. See the [README.md](topo/README.md) file for more information.
