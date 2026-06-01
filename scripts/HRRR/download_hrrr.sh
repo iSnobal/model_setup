@@ -45,6 +45,12 @@ export ARCHIVE_URL_AWS="https://noaa-hrrr-bdp-pds.s3.amazonaws.com/hrrr.DAY/conu
 export ARCHIVE_URL_Google="https://storage.googleapis.com/high-resolution-rapid-refresh/hrrr.DAY/conus/FILE"
 export ARCHIVE_URL_Azure="https://noaahrrr.blob.core.windows.net/hrrr/hrrr.DAY/conus/FILE"
 
+usage() {
+  echo ; echo "Usage: $(basename "$0") DATE [ARCHIVE]" ; echo
+  echo "  DATE: YYYY MM | YYYYMMDD,YYYYMMDD | YYYYMMDD"
+  echo "  ARCHIVE:  Google (default) | AWS | Azure | UofU" ; echo
+}
+
 check_valid_date() {
   if ! date -d "$1" "+%Y%m%d" > /dev/null 2>&1; then
     echo ; echo "Invalid date: '$1'" ; echo
@@ -257,6 +263,10 @@ download_hrrr() {
 export -f download_hrrr
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+case "${1:-}" in
+  -h|--help) usage; exit 0 ;;
+esac
+
 # Parse the given user inputs for dates
 if [[ $1 =~ ^[0-9]{4}$ ]] && [[ $2 =~ ^[0-9]{1,2}$ ]]; then
   # Regex pattern to match YYYY MM
