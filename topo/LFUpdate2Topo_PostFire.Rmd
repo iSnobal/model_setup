@@ -1,0 +1,188 @@
+---
+title: "Update iSnobal topo.nc File with LANDFIRE-Based Veg Params"
+author: "Helen Flynn"
+date: "2025-05-26"
+output: html_document
+---
+
+```{r setup, include=F}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load packages
+```{r, warning=F, message=F}
+library(tidyverse)
+library(sf)
+library(terra)
+library(raster)
+library(ncdf4)
+```
+
+# Assign file paths
+```{r}
+ vh_tif <- 'LC22_EVH_240.tif' # Set your file paths
+ vt_tif <- 'LC23_EVT_240.tif'
+# Make a copy of your original topo file and read the copy in here. You will be overwriting the information that is in the copy. Keep the original some place safe.
+ toponc <- 'topo.nc'
+ vegparamscsv <- 'landfire_veg_param.csv'
+```
+
+# Bring in the version of LANDFIRE updated layers to put in nc
+```{r}
+#veg height
+vh <- rast(vh_tif)
+#veg type
+vt <- rast(vt_tif)
+
+#plot to check that everything loaded correctly
+plot(vh)
+plot(vt)
+```
+
+# Open the topo.nc that needs updating
+```{r}
+#open the topo.nc file
+nc <- nc_open(toponc, write = TRUE)
+print(nc)
+
+#read dem variable to get extent of study area
+dem <- ncvar_get(nc,"dem")
+
+#read coordinates
+x <- ncvar_get(nc, "x")  #UTM eastings
+y <- ncvar_get(nc, "y")  #UTM northings
+
+#close the topo.nc file
+nc_close(nc)
+```
+
+# Create dem raster from netcdf matrix
+```{r}
+dem_rast <- rast(
+  t(dem),  #the t() function transposes the values from the nc matrix so that they plot properly as a raster (see note about vt and vh needing to be transposed back to original format of nc matrices)
+  extent = ext(min(x), max(x), min(y), max(y)),
+  crs = "EPSG:26913")
+
+#check that the dem is oriented correctly
+plot(dem_rast)
+```
+
+# Check that the crs match
+```{r}
+terra::crs(dem_rast)
+sf::st_crs(crs(dem_rast))$epsg
+terra::crs(vt)
+sf::st_crs(crs(vt))$epsg
+terra::crs(vh)
+sf::st_crs(crs(vh))$epsg
+#it is ok if the formatting is different, but if these don't match, project vt and vh to match the dem from the original topo.nc
+#they should match if you downloaded LANDFIRE in the correct crs
+
+#reproject steps
+#vt <- project(vt, dem_rast)
+#vh <- project(vh, dem_rast)
+```
+
+# Crop vt and vh to dem extent
+```{r}
+#this shouldn't actually resample, it just makes sure you don't lose a row and a column due to slight misalignment of the rasters
+vt_aligned <- resample(vt, dem_rast, method = "near")
+vh_aligned <- resample(vh, dem_rast, method = "near")
+
+#crop to the extent of the study area
+vt_crop <- crop(vt_aligned, dem_rast)
+vh_crop <- crop(vh_aligned, dem_rast)
+
+#check to see that they overlay correctly using landmarks (landmarks for CP = Chambers Lake, JW Res)
+plot(vt_crop)
+plot(vh_crop)
+plot(dem_rast)
+
+#Check that the image fully appears and that there is no white space. White space becomes NAs which will break the ncvar_put function.
+```
+
+# Replace veg_type and veg_height
+```{r}
+#convert vt and vh to matrices
+vt_mat <- t(as.matrix(vt_crop, wide = TRUE)) #the t() function here transposes the values, this is needed because the values from the nc file were transposed when creating the dem raster, so the values need to be transposed back to the proper format
+
+vh_mat <- t(as.matrix(vh_crop, wide = TRUE))
+#vh_mat[bs_mat == 4] <- 0 #CHANGE THIS WHEN YOU ARE DONE WITH TOPO_LF22_vegzero, 7145 = mesic meadow, 3 = moderate, 4 = high burn
+vh_df <- as.data.frame(vh_mat) %>% 
+  #this formula uses the value from veg_height and converts it to the actual vegetation height
+  mutate_all(~ ifelse(. <= 100, 0,  #if the value is <= 100, set to 0
+                      ifelse(. > 100 & . < 200, . %% 100,  #if > 100 but < 200, take last two digits
+                             ifelse(. >= 200, (floor(. / 10) %% 10) + ( . %% 10 ) / 10, .))))  #if >= 200, take second and third digits
+vh_mat <- as.matrix(vh_df) 
+
+#open nc and replace the variables
+nc <- nc_open(toponc, write = TRUE)
+ncvar_put(nc, "veg_type", vt_mat)
+ncvar_put(nc, "veg_height", vh_mat)
+
+nc_close(nc)
+```
+
+# Create blank k and tau dfs 
+```{r}
+nc <- nc_open(toponc, write = TRUE)
+
+#use veg_type as a matrix of the correct size, basically creates a blank copy
+k <- ncvar_get(nc, "veg_type")
+
+k_df <- as.data.frame(k)
+tau_df <- as.data.frame(k) #can be the same as k in this step because its just a copy of veg_type right now
+```
+
+# Load veg_params and assign k and tau vals
+```{r}
+#apply the conditions to modify the values using veg_params csv:
+veg_params <- read.csv(file = vegparamscsv,
+                       header = T)
+
+k_df <- k_df %>%
+  mutate(across(everything(), ~ case_when( #for every value....
+  #check if it matches a value in the veg_params$landfire200, then subset for that row and replace it with the corresponding k in that row. 
+    . %in% veg_params$landfire200 ~ veg_params$k[match(., veg_params$landfire200)],
+    . %in% veg_params$landfire140 ~ veg_params$k[match(., veg_params$landfire140)], 
+    TRUE ~ NA_real_  #if no match is found, assign NA
+  )))
+
+tau_df <- tau_df %>%
+  mutate(across(everything(), ~ case_when(
+    . %in% veg_params$landfire200 ~ veg_params$tau[match(., veg_params$landfire200)],
+    . %in% veg_params$landfire140 ~ veg_params$tau[match(., veg_params$landfire140)], 
+    TRUE ~ NA_real_  #if no match is found, assign NA
+  )))
+
+#sanity check
+sum(is.na(k_df))
+sum(is.na(tau_df))
+
+k_summary <- k_df %>%
+  unlist() %>%         
+  summary()
+print(k_summary)
+
+tau_summary <- tau_df %>%
+  unlist() %>%        
+  summary()
+print(tau_summary)
+
+summary(veg_params)
+#review that the values makes sense and the distributions look reasonable
+```
+
+# Replace k and tau in nc
+```{r}
+#convert the data frame back to a matrix
+k <- as.matrix(k_df)
+tau <- as.matrix(tau_df)
+
+#replace the variable in the original topo.nc file
+ncvar_put(nc, "veg_k", k)
+ncvar_put(nc, "veg_tau", tau)
+
+nc_close(nc)
+#IMPORTANT NOTE: the topo.nc file you read in is now overwritten with the replacement variables, but the file name has not changed. Change the file name.
+```

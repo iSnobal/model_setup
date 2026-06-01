@@ -1,0 +1,239 @@
+---
+title: "Update iSnobal topo.nc File with Burn-Severity-Based Veg Params"
+author: "Helen Flynn"
+date: "2026-05-26"
+output: html_document
+---
+
+```{r setup, include=F}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load packages
+```{r, warning=F, message=F}
+library(tidyverse)
+library(sf)
+library(terra)
+library(raster)
+library(ncdf4)
+```
+
+# Assign file paths
+```{r}
+# Make a copy of your original topo file and read the copy in here. You will be overwriting the information that is in the copy. Keep the original some place safe.
+toponc <- 'topo_burnseverity.nc'
+vegparamscsv <- 'landfire_veg_param.csv'
+mtbs_tif <- 'mtbs_CO_2020.tif'
+#These two files may not be available/applicable for everyone because there may not be a LF version released after the fire right away depending on time of year. These are just used to demonstrate methods for height selection. Select heights using the method of your choosing.
+vh_post_fire_tif <- 'LC23_EVH_240.tif'
+vt_post_fire_tif <- 'LC23_EVT_240.tif'
+```
+
+# Bring in the burn severity map
+```{r}
+#mtbs burn severity
+bs <- rast(mtbs_tif)
+
+#plot to check that everything loaded correctly
+plot(bs)
+```
+
+# Open the topo.nc that needs updating
+```{r}
+#open the topo.nc file
+nc <- nc_open(toponc, write = TRUE)
+print(nc)
+
+#read dem variable to get extent of study area
+dem <- ncvar_get(nc,"dem")
+vt <- ncvar_get(nc,"veg_type")
+vk <- ncvar_get(nc,"veg_k")
+vtau <- ncvar_get(nc,"veg_tau")
+vh <- ncvar_get(nc,"veg_height")
+
+#read coordinates
+x <- ncvar_get(nc, "x")  #UTM eastings
+y <- ncvar_get(nc, "y")  #UTM northings
+
+#close the topo.nc file
+nc_close(nc)
+```
+
+# Create dem raster from netcdf matrix
+```{r}
+dem_rast <- rast(
+  t(dem),  #the t() function transposes the values from the nc matrix so that they plot properly as a raster (see note about vt and vh needing to be transposed back to original format of nc matrices)
+  extent = ext(min(x), max(x), min(y), max(y)),
+  crs = "EPSG:26913")
+vt_rast <- rast(
+  t(vt), 
+  extent = ext(min(x), max(x), min(y), max(y)),
+  crs = "EPSG:26913")
+vk_rast <- rast(
+  t(vk), 
+  extent = ext(min(x), max(x), min(y), max(y)),
+  crs = "EPSG:26913")
+vtau_rast <- rast(
+  t(vtau), 
+  extent = ext(min(x), max(x), min(y), max(y)),
+  crs = "EPSG:26913")
+vh_rast <- rast(
+  t(vh), 
+  extent = ext(min(x), max(x), min(y), max(y)),
+  crs = "EPSG:26913")
+
+#check that the dem is oriented correctly
+plot(dem_rast)
+plot(vt_rast)
+plot(vk_rast)
+plot(vtau_rast)
+plot(vh_rast)
+```
+
+# Check that the crs match
+```{r}
+terra::crs(dem_rast)
+sf::st_crs(crs(dem_rast))$epsg
+terra::crs(bs)
+sf::st_crs(crs(bs))$epsg
+#it is ok if the formatting is different, but if these don't match, project vt and vh to match the dem from the original topo.nc
+#they should match if you downloaded LANDFIRE in the correct crs
+
+#reproject if needed
+bs <- project(bs, dem_rast, method = "near")
+unique(values(bs)) #sanity check
+```
+
+#Crop burn severity map to dem
+```{r}
+#this shouldn't actually resample, it just makes sure you don't lose a row and a column due to slight misalignment of the rasters
+bs_aligned <- resample(bs, dem_rast, method = "near")
+
+#crop to the extent of the study area
+bs_crop <- crop(bs_aligned, dem_rast)
+
+#check to see that they overlay correctly using landmarks (landmarks for CP are Chambers Lake, JW Res)
+plot(dem_rast)
+plot(bs_crop)
+
+#Check that the image fully appears and that there is no white space in dem. White space becomes NAs which will break the ncvar_put function.
+
+#count of each val in burn severity map
+freq(bs_crop)
+#should not contain NAs
+```
+
+# Create matrices for k, tau and height
+```{r}
+#create matrices for each of the variables (k, tau, height) using the dem which should be the right size
+  #all values will be reassigned so it doesn't matter that we're using the dem. It will also be easy to tell if something doesn't work because the dem has very different values from what k, tau and height should be
+
+vt_mat <- t(as.matrix(vt_rast, wide = TRUE)) #the t() function here transposes the values, this is needed because the values from the nc file were transposed when creating the dem raster, so the values need to be transposed back to the proper format
+vk_mat <- t(as.matrix(vk_rast, wide = TRUE))
+vtau_mat <- t(as.matrix(vtau_rast, wide = TRUE))
+vh_mat <- t(as.matrix(vh_rast, wide = TRUE))
+
+bs_mat <- t(as.matrix(bs_crop, wide = TRUE))
+```
+
+# Assess how many cells that changed to "meadow" are in each type of burn severity Load post-fire veg_type and convert to matrix
+```{r}
+vt_post_fire_rast <- rast(vt_post_fire_tif)
+plot(vt_post_fire_rast)
+
+terra::crs(vt_post_fire_rast)
+sf::st_crs(crs(vt_post_fire_rast))$epsg
+
+#reproject if necessary
+#vt_post_fire_rast <- project(vt_post_fire_rast, dem_rast)
+
+vt_post_fire_aligned <- resample(vt_post_fire_rast, dem_rast, method = "near")
+vt_post_fire_crop <- crop(vt_post_fire_aligned, dem_rast)
+plot(vt_post_fire_crop)
+
+vt_post_fire_mat <- t(as.matrix(vt_post_fire_crop, wide = TRUE))
+```
+
+# Load post-fire veg_height
+```{r}
+vh_post_fire_rast <- rast(vh_post_fire_tif)
+plot(vh_post_fire_rast)
+
+terra::crs(vh_post_fire_rast)
+sf::st_crs(crs(vh_post_fire_rast))$epsg
+
+#reproject if necessary
+#vh_post_fire_rast <- project(vh_post_fire_rast, dem_rast)
+
+vh_post_fire_aligned <- resample(vh_post_fire_rast, dem_rast, method = "near")
+vh_post_fire_crop <- crop(vh_post_fire_aligned, dem_rast)
+plot(vh_post_fire_crop)
+
+vh_post_fire_mat <- t(as.matrix(vh_post_fire_crop, wide = TRUE))
+
+vh_post_fire_df <- as.data.frame(vh_post_fire_mat) %>% 
+  #this formula uses the value from veg_height and converts it to the actual vegetation height
+  mutate_all(~ ifelse(. <= 100, 0,  #if the value is <= 100, set to 0
+                      ifelse(. > 100 & . < 200, . %% 100,  #if > 100 but < 200, take last two digits
+                             ifelse(. >= 200, (floor(. / 10) %% 10) + ( . %% 10 ) / 10, .))))  #if >= 200, take second and third digits
+vh_post_fire_mat <- as.matrix(vh_post_fire_df)
+```
+
+# Assess veg_height across burn severities to choose heights to assign
+```{r}
+vh_post_fire_vec <- as.vector(vh_post_fire_mat)  # vegetation height
+bs_vh_vec <- as.vector(bs_mat)                  # burn severity
+
+valid_vals <- !is.na(vh_post_fire_vec) & !is.na(bs_vh_vec)
+vh_post_fire_vec <- vh_post_fire_vec[valid_vals]
+bs_vh_vec <- bs_vh_vec[valid_vals]
+
+df_vh <- data.frame(
+  BurnSeverity = factor(bs_vh_vec, levels = 1:6),  # ensure correct order
+  VegHeight = vh_post_fire_vec
+)
+
+ggplot(df_vh, aes(x = VegHeight)) +
+  geom_histogram(binwidth = 0.5, fill = "steelblue", color = "black") +
+  facet_wrap(~BurnSeverity, ncol = 2, scales = "free_y") +
+  labs(
+    title = "Distribution of Vegetation Height by Burn Severity",
+    x = "Vegetation Height (m)",
+    y = "Number of Cells"
+  ) +
+  theme_minimal(base_size = 14)
+
+med_height <- df_vh %>% 
+  group_by(BurnSeverity) %>% 
+  summarize(med = median(VegHeight),
+            mean = mean(VegHeight))
+
+med_height
+```
+
+# Assign values in each variable based on burn severity matrix
+```{r}
+vh_mat[bs_mat == 4] <- 0.4 #high bs = 4, height = 0.4
+vh_mat[bs_mat == 3] <- 7 #mod bs = 3, height = 7
+vh_mat[bs_mat == 2] <- 11 #low bs = 2, height = 11
+#vh_mat[bs_mat == 1] <- 13 #unburned to low bs = 1, height = 13, to leave at pre-fire levels, leave this line commented out
+
+#open nc and replace the variables
+
+vk_mat[bs_mat == 4] <- 0 #high bs = 4, height = 0
+vk_mat[bs_mat == 3] <- 0.02 #mod bs = 3, height = 0.02
+vk_mat[bs_mat == 2] <- 0.03 #low bs = 2, height = 0.03
+#vk_mat[bs_mat == 1] <- 0.04 #unburned to low bs = 1, height = 0.04
+
+vtau_mat[bs_mat == 4] <- 1 #high bs = 4, height = 1
+vtau_mat[bs_mat == 3] <- 0.44 #mod bs = 3, height = 0.44
+vtau_mat[bs_mat == 2] <- 0.3 #low bs = 2, height = 0.3
+#vtau_mat[bs_mat == 1] <- 0.2 #unburned to low bs = 1, height = 0.2
+
+nc <- nc_open(toponc, write = TRUE)
+ncvar_put(nc, "veg_height", vh_mat)
+ncvar_put(nc, "veg_k", vk_mat)
+ncvar_put(nc, "veg_tau", vtau_mat)
+
+nc_close(nc)
+```
