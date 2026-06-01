@@ -47,10 +47,10 @@ export ARCHIVE_URL_Azure="https://noaahrrr.blob.core.windows.net/hrrr/hrrr.DAY/c
 
 check_valid_date() {
   if ! date -d "$1" "+%Y%m%d" > /dev/null 2>&1; then
-    echo "Invalid date detected, ensure input is valid and follows format YYYYMMDD: $1"
+    echo ; echo "Invalid date: '$1'" ; echo
     exit 1
   elif [[ $(date -d "$1" "+%Y%m%d") -gt $(date "+%Y%m%d") ]]; then
-    echo "Invalid date: $1 is in the future."
+    echo ; echo "Invalid date: '$1' is in the future." ; echo
     exit 1
   fi
 }
@@ -262,15 +262,18 @@ if [[ $1 =~ ^[0-9]{4}$ ]] && [[ $2 =~ ^[0-9]{1,2}$ ]]; then
   # Regex pattern to match YYYY MM
   YEAR=$1
   MONTH=$(printf "%02d" "$((10#${2}))")
+  # Ensure valid year and month
+  check_valid_date ${YEAR}${MONTH}01
   LAST_DAY=$(date -d "${MONTH}/01/${YEAR} + 1 month - 1 day" +%d)
-  check_valid_date ${YEAR}${MONTH}${LAST_DAY}
 
   export DATES=($(seq -f "${YEAR}${MONTH}%02g" 1 $LAST_DAY))
 elif [[ $1 =~ ^([0-9]{8}),([0-9]{8})$ ]]; then
   # Regex pattern to match YYYYMMDD,YYYYMMDD
   START_DATE="${BASH_REMATCH[1]}"
   END_DATE="${BASH_REMATCH[2]}"
+  echo "  Start: '$START_DATE'"
   check_valid_date "$START_DATE"
+  echo "  End:   '$END_DATE'"
   check_valid_date "$END_DATE"
 
   if [[ "$START_DATE" -gt "$END_DATE" ]]; then
@@ -290,7 +293,7 @@ elif [[ $1 =~ ^[0-9]{8}$ ]]; then
   check_valid_date "$1"
   export DATES=("$1")
 else
-  echo "Invalid input. Use either: YYYY MM [Archive] OR YYYYMMDD,YYYYMMDD [Archive] OR YYYYMMDD [Archive]"
+  echo "Invalid date, insufficient digits: '$1'"
   exit 1
 fi
 
