@@ -5,6 +5,11 @@ a conda environment.
 ## Model releases
 See the [NEWS](NEWS.md) for the latest and history of model releases.
 
+### DOI
+Each model release will have a corresponding release of this repository to match
+the setup used to run the model. Please lookup the latest DOI here: 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20451675.svg)](https://doi.org/10.5281/zenodo.20451675)
+
 ## Folder structure
 
 ### Conda
@@ -35,3 +40,7 @@ Collection of Jupyter notebooks that aid in model setup.
 
 Helper scripts to download or prepare data and execute the model components.  
 This includes example SLURM scripts for High Performance Compute (HPC) environments.
+
+### Topo
+Scripts assisting in updating the domain metadata (`topo.nc` file) to different
+versions of Landfire. See the [README.md](topo/README.md) file for more information.

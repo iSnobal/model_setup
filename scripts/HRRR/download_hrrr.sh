@@ -3,13 +3,15 @@
 #
 # Can either be given two arguments for year and month:
 #   ./download_hrrr.sh YYYY MM (Archive)
-# or loop over the dates given as one argument separated by comma.
-# This is also the pathway for single day (same endpoint) downloads.
+# a range of dates to loop through given as one comma-separated argument:
 #   ./download_hrrr.sh YYYYMMDD,YYYYMMDD (Archive)
+# or a single date:
+#   ./download_hrrr.sh YYYYMMDD (Archive)
 #
 # The third is optional and can specify the archive source. Default
 # is to get from Google and can be changed to the University of Utah
 # by passing 'UofU', Amazon with 'AWS', or Microsoft with 'Azure'.
+# Invalid date or archive inputs will be rejected and the script will exit.
 
 # Colorado Basin River bounding box from:
 # https://www.sciencebase.gov/catalog/item/4f4e4a38e4b07f02db61cebb
@@ -42,6 +44,22 @@ export ARCHIVE_URL_UofU="https://pando-rgw01.chpc.utah.edu/hrrr/sfc/DAY/FILE"
 export ARCHIVE_URL_AWS="https://noaa-hrrr-bdp-pds.s3.amazonaws.com/hrrr.DAY/conus/FILE"
 export ARCHIVE_URL_Google="https://storage.googleapis.com/high-resolution-rapid-refresh/hrrr.DAY/conus/FILE"
 export ARCHIVE_URL_Azure="https://noaahrrr.blob.core.windows.net/hrrr/hrrr.DAY/conus/FILE"
+
+usage() {
+  echo ; echo "Usage: $(basename "$0") DATE [ARCHIVE]" ; echo
+  echo "  DATE: YYYY MM | YYYYMMDD,YYYYMMDD | YYYYMMDD"
+  echo "  ARCHIVE:  Google (default) | AWS | Azure | UofU" ; echo
+}
+
+check_valid_date() {
+  if ! date -d "$1" "+%Y%m%d" > /dev/null 2>&1; then
+    echo ; echo "Invalid date: '$1'" ; echo
+    exit 1
+  elif [[ $(date -d "$1" "+%Y%m%d") -gt $(date "+%Y%m%d") ]]; then
+    echo ; echo "Invalid date: '$1' is in the future." ; echo
+    exit 1
+  fi
+}
 
 set_archive_url() {
   # Rely on ARCHIVE_NAME to identify correct URL template var
@@ -247,9 +265,12 @@ download_hrrr() {
   if [[ $? -eq 3 ]]; then
     >&2 printf "  File is zero size or has missing variables, checking alternate archives...\n"
 
-    # Loop through archives until file is no longer zero size
+    # Loop through alternate archives until file is no longer zero size
     # or all archives have been checked.
     for ALT_ARCHIVE in $ARCHIVE_NAMES; do
+      if [[ "${ALT_ARCHIVE}" == "${ARCHIVE}" ]]; then
+        continue
+      fi
       check_file_in_archive "$ALT_ARCHIVE"
       if [[ $? -eq 0 ]]; then
         get_grib_range
@@ -282,11 +303,17 @@ download_hrrr() {
 export -f download_hrrr
 
 # ── Main ──────────────────────────────────────────────────────────────────────
-# Parse the given user inputs for dates, ensure it does not match archive names
-# Note: spacing is intentional to prevent partial matches
-if [[ -n "$2" ]] && [[ " $ARCHIVE_NAMES " != *" $2 "* ]]; then
+case "${1:-}" in
+  -h|--help) usage; exit 0 ;;
+esac
+
+# Parse the given user inputs for dates
+if [[ $1 =~ ^[0-9]{4}$ ]] && [[ $2 =~ ^[0-9]{1,2}$ ]]; then
+  # Regex pattern to match YYYY MM
   YEAR=$1
   MONTH=$(printf "%02d" "$((10#${2}))")
+  # Ensure valid year and month
+  check_valid_date ${YEAR}${MONTH}01
   LAST_DAY=$(date -d "${MONTH}/01/${YEAR} + 1 month - 1 day" +%d)
 
   export DATES=($(seq -f "${YEAR}${MONTH}%02g" 1 $LAST_DAY))
@@ -294,6 +321,10 @@ elif [[ $1 =~ ^([0-9]{8}),([0-9]{8})$ ]]; then
   # Regex pattern to match YYYYMMDD,YYYYMMDD
   START_DATE="${BASH_REMATCH[1]}"
   END_DATE="${BASH_REMATCH[2]}"
+  echo "  Start: '$START_DATE'"
+  check_valid_date "$START_DATE"
+  echo "  End:   '$END_DATE'"
+  check_valid_date "$END_DATE"
 
   if [[ "$START_DATE" -gt "$END_DATE" ]]; then
     echo "Invalid range: start date must be <= end date"
@@ -307,18 +338,26 @@ elif [[ $1 =~ ^([0-9]{8}),([0-9]{8})$ ]]; then
     CURRENT_DATE=$(date -d "${CURRENT_DATE:0:4}-${CURRENT_DATE:4:2}-${CURRENT_DATE:6:2} + 1 day" +%Y%m%d)
   done
   export DATES
+elif [[ $1 =~ ^[0-9]{8}$ ]]; then
+  # Regex pattern to match single YYYYMMDD
+  check_valid_date "$1"
+  export DATES=("$1")
 else
-  echo "Invalid input. Use either: YYYY MM [Archive] OR YYYYMMDD,YYYYMMDD [Archive]"
+  echo "Invalid date, insufficient digits: '$1'"
   exit 1
 fi
 
-# Set the archive ($3 for YYYY MM mode, $2 for date-range mode)
+# Set the archive ($3 for YYYY MM mode, $2 for date-range or single date mode)
 ARCHIVE_ARG="${3:-$2}"
-# Note: spacing is intentional here as well
-if [[ " $ARCHIVE_NAMES " == *" $ARCHIVE_ARG "* ]]; then
+# Check if ARCHIVE_ARG is empty
+if [[ -z "$ARCHIVE_ARG" ]]; then
+  export ARCHIVE="$DEFAULT_ARCHIVE"
+# Check if input is valid, spacing ensures input matches an archive option
+elif [[ " $ARCHIVE_NAMES " == *" $ARCHIVE_ARG "* ]]; then
   export ARCHIVE="$ARCHIVE_ARG"
 else
-  export ARCHIVE="$DEFAULT_ARCHIVE"
+  echo "Invalid archive specified: $ARCHIVE_ARG. Valid options are: $ARCHIVE_NAMES."
+  exit 1
 fi
 unset ARCHIVE_ARG
 
