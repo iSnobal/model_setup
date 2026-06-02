@@ -143,32 +143,21 @@ export -f check_file_existence
 
 check_file_is_valid_and_index() {
   # Checks file has all required HRRR Variables
-  # If this check passes, we write the index file
+  # Also handles writing the index
   local file=$1
-  local metadata
   local var
-  local file_idx_data
 
-  # Check to make sure index exists, if not create it
-  if [[ -f "${file}.idx" ]]; then
-    metadata=$(cut -d: -f4,5 "${file}.idx")
-  else
-    file_idx_data=$(wgrib2 "${file}" -s 2>/dev/null)
-    metadata=$(echo "${file_idx_data}" | cut -d: -f4,5)
-  fi
+  # Create index file
+  wgrib2 "${file}" -s > "${file}.idx" 2>/dev/null
 
-  # Look through to ensure hrrr vars are present
+  # Look through to ensure hrrr vars are present (delete index if not)
   IFS='|' read -ra vars <<< "${HRRR_VARS}"
   for var in "${vars[@]}"; do
-    if ! echo "${metadata}" | grep -E -q "^${var}(:| )?"; then
+    if ! grep -E -q "^${var}(:| )?" "${file}.idx"; then
+      rm -f "${file}" "${file}.idx"
       return 1
     fi
   done
-
-  # Write index if it does not exist yet
-  if [[ -n "${file_idx_data}" ]]; then
-    echo "${file_idx_data}" > "${file}.idx"
-  fi
   return 0
 }
 export -f check_file_is_valid_and_index
