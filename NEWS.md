@@ -1,12 +1,44 @@
 # News
+
 Highlights model component changes per release. This is not a comprehensive list
 and each linked release note should be consulted for a full list of changes.
 
-# 20260520
-## AWSM
+## 20261022
+
+### AWSM
+
+All updates are related to SMRF changes
+Small improvements to the GH actions.
+
+### SMRF
+
+Major changes:
+
+* Combine methods to calcualte sati and satw in [#79](https://github.com/iSnobal/smrf/pull/79)
+* TopoSplit - switch to bilinear interpolation and fix HRRR overcast zero-dropouts in [#81](https://github.com/iSnobal/smrf/pull/81)
+* Albedo config - decay dates - Add check that they are in a current water year in [#80](https://github.com/iSnobal/smrf/pull/80)
+* Distribute - Albedo - set albedo to None when sun is down in [#83](https://github.com/iSnobal/smrf/pull/83)
+
+#### Release notes
+
+<https://github.com/iSnobal/smrf/releases/tag/20261022>
+
+### PySnobal
+
 _None_
 
-## SMRF
+### TopoCalc
+
+_None_
+
+## 20260520
+
+### AWSM
+
+_None_
+
+### SMRF
+
 * Add new albedo decay option to support post fire scenarios. [PR#27](https://github.com/iSnobal/smrf/pull/27)
 
 ### Breaking changes
