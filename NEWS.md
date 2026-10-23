@@ -14,7 +14,7 @@ Small improvements to the GH actions.
 
 Major changes:
 
-* Combine methods to calcualte sati and satw in [#79](https://github.com/iSnobal/smrf/pull/79)
+* Combine methods to calculate sati and satw in [#79](https://github.com/iSnobal/smrf/pull/79)
 * TopoSplit - switch to bilinear interpolation and fix HRRR overcast zero-dropouts in [#81](https://github.com/iSnobal/smrf/pull/81)
 * Albedo config - decay dates - Add check that they are in a current water year in [#80](https://github.com/iSnobal/smrf/pull/80)
 * Distribute - Albedo - set albedo to None when sun is down in [#83](https://github.com/iSnobal/smrf/pull/83)
