@@ -27,5 +27,5 @@ dependencies:
   - utm
   - xarray<2027
   - pip:
-      - git+https://github.com/iSnobal/awsm.git@20261022
+      - git+https://github.com/iSnobal/awsm.git@main
       - m3w-inicheck==0.3.0
