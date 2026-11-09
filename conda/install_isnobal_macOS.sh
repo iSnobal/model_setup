@@ -62,7 +62,7 @@ if [[ "$PINNED_SUBDIR" != "$TARGET_SUBDIR" ]]; then
   exit 1
 fi
 
-# ---- verify interpretter architecture -------------------------------------
+# ---- verify interpreter architecture -------------------------------------
 
 echo "Verifying Python architecture..."
 
