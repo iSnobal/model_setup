@@ -1,7 +1,7 @@
 # iSnobal- Conda Install
 
-This folder contains installation instructions for model including `conda` environment files and a
-model development environment setup script.
+This folder contains installation instructions for the model including `conda` environment files and a
+development environment setup script.
 
 ## Model execution environment
 
