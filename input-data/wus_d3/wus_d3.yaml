@@ -1,0 +1,10 @@
+name: wus_d3
+channels:
+  - conda-forge
+dependencies:
+  - python
+  - h5netcdf<2
+  - h5py<4
+  - numpy
+  - s3fs
+  - pytest
